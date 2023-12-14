@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VinylWall</title>
+</head>
+<body>
+<h1>VinylWall</h1>
+{% if spot_matrix %}
+    <table>
+        <tbody>
+        {% for spot_row in spot_matrix %}
+            <tr>
+                {% for spot in spot_row %}
+                    {% if spot.playable %}
+                        <td>
+                <br>
+                <img src="{% url 'configurator:album_cover' spot.playable.id %}"
+                     alt="{{ spot.playable.name }}"
+                     width="200">
+                            </td>
+            {% else %}
+                <td>Empty</td>
+            {% endif %}
+                {% endfor %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No Spots are available.</p>
+{% endif %}
+
+</body>
+</html>

@@ -14,6 +14,9 @@ urlpatterns = [
     path('active_shelf/', views.active_shelf_view, name='active_shelf'),
     path('album_cover/<int:playable_id>', views.album_cover, name='album_cover'),
 
+    path('shelf/activate/<int:shelf_id>', views.activate_shelf, name='activate_shelf'),
+    path('shelf/duplicate/<int:shelf_id>', views.duplicate_shelf, name='duplicate_shelf'),
+
     path('shelf/add_right/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("right"), name='add_right'),
     path('shelf/add_left/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("left"), name='add_left'),
     path('shelf/add_top/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("top"), name='add_top'),

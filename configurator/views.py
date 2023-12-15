@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from django.http import HttpResponse, HttpResponseRedirect
@@ -12,14 +13,55 @@ def album_cover(request, playable_id):
     playable = get_object_or_404(Playable, pk=playable_id)
     return HttpResponse(playable.image, content_type='image/jpeg')
 
+
 def shelf_view(request, shelf_id):
     shelf = get_object_or_404(Shelf, pk=shelf_id)
     return render_shelf(request, shelf)
+
 
 def active_shelf_view(request):
     shelf = get_object_or_404(Shelf, active=1)
     return render_shelf(request, shelf)
 
+
+def activate_shelf(request, shelf_id):
+    currently_active_shelf = get_object_or_404(Shelf, active=1)
+    new_active_shelf = get_object_or_404(Shelf, pk=shelf_id)
+    currently_active_shelf.active = False
+    new_active_shelf.active = True
+
+    currently_active_shelf.save()
+    new_active_shelf.save()
+    return render_shelf(request, shelf=new_active_shelf)
+
+
+def duplicate_shelf(request, shelf_id):
+    shelf = get_object_or_404(Shelf, pk=shelf_id)
+    match = re.search(r" ?\((\d+)\)$", shelf.name)
+    ctd = 2
+    base_name = shelf.name
+    if match:
+        ctd = int(match.group(1)) + 1
+        base_name = shelf.name[:match.span()[0]]
+    while True:
+        new_name = f"{base_name} ({ctd})"
+        try:
+            Shelf.objects.get(name=new_name)
+        except Shelf.DoesNotExist:
+            break
+        else:
+            ctd += 1
+    new_shelf = Shelf(name=new_name, active=False)
+
+    spot_list = shelf.shelfspot_set.all()
+    new_shelf.save()
+    for shelfspot in spot_list:
+        ss_copy = ShelfSpot(row_index=shelfspot.row_index, col_index=shelfspot.col_index,
+                            playable_id=shelfspot.playable_id, shelf_id=new_shelf.id
+                           )
+        ss_copy.save()
+
+    return HttpResponseRedirect(reverse("configurator:shelf", args=(new_shelf.id,)))
 
 def render_shelf(request, shelf):
     spot_list = shelf.shelfspot_set.all()
@@ -30,6 +72,8 @@ def render_shelf(request, shelf):
 
 
 def generate_spot_matrix(spot_list):
+    if not spot_list:
+        return {}
     min_row = min(s.row_index for s in spot_list)
     min_col = min(s.col_index for s in spot_list)
     spot_matrix = {row_idx:
@@ -77,7 +121,9 @@ def add_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
         # with POST data. This prevents data from being posted twice if a
         # user hits the Back button.
         return HttpResponseRedirect(reverse("configurator:shelf", args=(shelf_id,)))
+
     return add_spot
+
 
 def remove_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
     valid_dirs = ["left", "right", "top", "bottom"]
@@ -117,4 +163,5 @@ def remove_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
         # with POST data. This prevents data from being posted twice if a
         # user hits the Back button.
         return HttpResponseRedirect(reverse("configurator:shelf", args=(shelf_id,)))
+
     return remove_spot

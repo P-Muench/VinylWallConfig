@@ -84,7 +84,7 @@ class Playable(models.Model):
     href = models.CharField(max_length=512)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    json_response = models.CharField(max_length=1024*32)
+    json_response = models.CharField(max_length=1024 * 32)
 
     def __str__(self):
         return str(type(self).name) + " " + str(self.name)
@@ -154,11 +154,13 @@ class Playlist(Playable):
     description = models.CharField(max_length=1024)
     public = models.BooleanField()
 
+
 class Shelf(models.Model):
     name = models.CharField(max_length=128)
     active = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
 
 class ShelfSpot(models.Model):
     row_index = models.IntegerField()

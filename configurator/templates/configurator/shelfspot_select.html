@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shelfspot {{ shelfspot.id }}</title>
+</head>
+<body>
+<form action="{% url 'configurator:set_playable' shelfspot.id %}" method="post">
+{% csrf_token %}
+<fieldset>
+    <legend><h1>Shelfspot {{shelfspot.shelf.name }} ({{ shelfspot.row_index }}, {{ shelfspot.col_index }})</h1></legend>
+    {% if search_txt %}<p><strong>Results for {{ search_txt }}</strong></p>{% endif %}
+    {% for selected_playable in selected_playables %}
+        <input type="radio" name="playable_id" id="choice{{ forloop.counter }}" value="{{ selected_playable.id }}" {% if selected_playable.id == shelfspot.playable.id %} checked="checked" {% endif %}>
+        <label for="choice{{ forloop.counter }}"><img src="{% url 'configurator:album_cover' selected_playable.id %}"
+                                               alt="{{ spot.playable.name }}" width="50">
+                                                {{ selected_playable.name }}</label><br>
+    {% endfor %}
+</fieldset>
+<input type="submit" value="Select">
+</form>
+</body>
+</html>

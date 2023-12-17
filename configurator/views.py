@@ -5,7 +5,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 
-from configurator.models import Playable, ShelfSpot, Shelf
+from configurator.models import Playable, ShelfSpot, Shelf, Album, Playlist
 
 
 # Create your views here.
@@ -58,10 +58,11 @@ def duplicate_shelf(request, shelf_id):
     for shelfspot in spot_list:
         ss_copy = ShelfSpot(row_index=shelfspot.row_index, col_index=shelfspot.col_index,
                             playable_id=shelfspot.playable_id, shelf_id=new_shelf.id
-                           )
+                            )
         ss_copy.save()
 
     return HttpResponseRedirect(reverse("configurator:shelf", args=(new_shelf.id,)))
+
 
 def render_shelf(request, shelf):
     spot_list = shelf.shelfspot_set.all()
@@ -165,3 +166,39 @@ def remove_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
         return HttpResponseRedirect(reverse("configurator:shelf", args=(shelf_id,)))
 
     return remove_spot
+
+
+def set_playable(request, shelfspot_id):
+    playable_id = request.POST["playable_id"]
+    shelfspot = get_object_or_404(ShelfSpot, pk=shelfspot_id)
+    playable = get_object_or_404(Playable, pk=playable_id)
+
+    shelfspot.playable_id = playable.id
+    shelfspot.save()
+    return HttpResponseRedirect(reverse("configurator:shelf", args=(shelfspot.shelf_id,)))
+
+
+def remove_playable(request, shelfspot_id):
+    shelfspot = get_object_or_404(ShelfSpot, pk=shelfspot_id)
+    shelfspot.playable_id = 1
+    shelfspot.save()
+    return HttpResponseRedirect(reverse("configurator:shelf", args=(shelfspot.shelf_id,)))
+
+
+def playable_selection(request, shelfspot_id, search_txt=""):
+    if search_txt == "":
+        selected_playables = set(Playable.objects.all())
+    else:
+        selected_playables = Playable.objects.filter(name__icontains=search_txt)
+        selected_playables = (set(selected_playables)
+                              .union(set(Album.objects.filter(artist__icontains=search_txt)))
+                              .union(set(Playlist.objects.filter(owner__icontains=search_txt)))
+                              .union(set(Playlist.objects.filter(description__icontains=search_txt))))
+
+    selected_playables = {p for p in selected_playables if p.id != 1}
+    print({p.id: p.created_at for p in selected_playables})
+    return render(request, 'configurator/shelfspot_select.html', {
+        'shelfspot': get_object_or_404(ShelfSpot, pk=shelfspot_id),
+        'search_txt': search_txt,
+        "selected_playables": sorted(selected_playables, key=lambda x: x.created_at)
+    })

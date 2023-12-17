@@ -16,6 +16,10 @@ urlpatterns = [
 
     path('shelf/activate/<int:shelf_id>', views.activate_shelf, name='activate_shelf'),
     path('shelf/duplicate/<int:shelf_id>', views.duplicate_shelf, name='duplicate_shelf'),
+    path('shelfspot/set/<int:shelfspot_id>', views.set_playable, name="set_playable"),
+    path('shelfspot/remove/<int:shelfspot_id>', views.remove_playable, name="remove_playable"),
+    path('shelfspot/select/<int:shelfspot_id>', views.playable_selection, name="select_playable"),
+    path('shelfspot/select/<int:shelfspot_id>/<str:search_txt>', views.playable_selection, name="select_playable_txt"),
 
     path('shelf/add_right/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("right"), name='add_right'),
     path('shelf/add_left/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("left"), name='add_left'),

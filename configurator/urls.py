@@ -10,16 +10,19 @@ urlpatterns = [
     # # path('<int:pk>/', views.DetailView.as_view(), name='detail'),
     # # path('<int:pk>/results/', views.ResultsView.as_view(), name='results'),
     # path('activate/', views.activate, name='activate'),
+    path('', views.active_shelf_view, name='root'),
     path('shelf/<int:shelf_id>', views.shelf_view, name='shelf'),
     path('active_shelf/', views.active_shelf_view, name='active_shelf'),
     path('album_cover/<int:playable_id>', views.album_cover, name='album_cover'),
+
+    path('devices/', views.devices, name='devices'),
+    path('devices/activate', views.activate_device, name='activate_device'),
 
     path('shelf/activate/<int:shelf_id>', views.activate_shelf, name='activate_shelf'),
     path('shelf/duplicate/<int:shelf_id>', views.duplicate_shelf, name='duplicate_shelf'),
     path('shelfspot/set/<int:shelfspot_id>', views.set_playable, name="set_playable"),
     path('shelfspot/remove/<int:shelfspot_id>', views.remove_playable, name="remove_playable"),
     path('shelfspot/select/<int:shelfspot_id>', views.playable_selection, name="select_playable"),
-    path('shelfspot/select/<int:shelfspot_id>/<str:search_txt>', views.playable_selection, name="select_playable_txt"),
 
     path('shelf/add_right/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("right"), name='add_right'),
     path('shelf/add_left/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("left"), name='add_left'),

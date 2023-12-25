@@ -1,11 +1,13 @@
 import re
 from typing import Literal
 
+import requests
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 
-from configurator.models import Playable, ShelfSpot, Shelf, Album, Playlist
+from VinylWallConfig.settings import MUSIC_DAEMON_PATH
+from configurator.models import Playable, ShelfSpot, Shelf, Album, Playlist, Device
 
 
 # Create your views here.
@@ -22,6 +24,33 @@ def shelf_view(request, shelf_id):
 def active_shelf_view(request):
     shelf = get_object_or_404(Shelf, active=1)
     return render_shelf(request, shelf)
+
+
+def devices(request):
+    print(request.POST)
+    do_reload = request.POST.get("reload", None)
+    if do_reload is not None:
+        add_devices_from_demon()
+    devices = Device.objects.all()
+    # devices_list
+    return render(request, 'configurator/devices.html', {
+        'devices_list': devices
+    })
+
+def activate_device(request):
+    device_id = request.POST.get("device_id", -1)
+
+    currently_active_device = get_object_or_404(Device, active=1)
+    new_active_device = get_object_or_404(Device, pk=device_id)
+    currently_active_device.active = False
+    new_active_device.active = True
+
+    currently_active_device.save()
+    new_active_device.save()
+
+    return HttpResponseRedirect(reverse("configurator:devices"))
+
+    # return render_shelf(request, shelf=new_active_device)
 
 
 def activate_shelf(request, shelf_id):
@@ -174,7 +203,9 @@ def set_playable(request, shelfspot_id):
     playable = get_object_or_404(Playable, pk=playable_id)
 
     shelfspot.playable_id = playable.id
+    playable.in_library = True
     shelfspot.save()
+    playable.save()
     return HttpResponseRedirect(reverse("configurator:shelf", args=(shelfspot.shelf_id,)))
 
 
@@ -185,20 +216,43 @@ def remove_playable(request, shelfspot_id):
     return HttpResponseRedirect(reverse("configurator:shelf", args=(shelfspot.shelf_id,)))
 
 
-def playable_selection(request, shelfspot_id, search_txt=""):
+def add_albums_from_daemon(search_txt):
+    answer = requests.get(MUSIC_DAEMON_PATH + "/search_album/" + search_txt)
+    albums = answer.json()
+    for album in albums:
+        album_uri = album["uri"]  # spotify:album:1NLRh73eGolvxR1lenP5nQ
+        query = Playable.objects.filter(uri=album_uri)
+        if query.count() == 0:
+            Album.from_json(album, save=True)
+
+
+def add_devices_from_demon():
+    answer = requests.get(MUSIC_DAEMON_PATH + "/devices")
+    devices = answer.json()
+    for device in devices:
+        device_id = device["id"]
+        query = Device.objects.filter(device_id=device_id)
+        if query.count() == 0:
+            Device.from_json(device, save=True)
+
+
+def playable_selection(request, shelfspot_id):
+    search_txt = request.POST.get("search_txt", "")
     if search_txt == "":
-        selected_playables = set(Playable.objects.all())
+        relevant_playables = set(Playable.objects.all())
     else:
-        selected_playables = Playable.objects.filter(name__icontains=search_txt)
-        selected_playables = (set(selected_playables)
+        add_albums_from_daemon(search_txt)
+        relevant_playables = Playable.objects.filter(name__icontains=search_txt)
+        relevant_playables = (set(relevant_playables)
                               .union(set(Album.objects.filter(artist__icontains=search_txt)))
                               .union(set(Playlist.objects.filter(owner__icontains=search_txt)))
                               .union(set(Playlist.objects.filter(description__icontains=search_txt))))
 
-    selected_playables = {p for p in selected_playables if p.id != 1}
-    print({p.id: p.created_at for p in selected_playables})
+    playables_in_lib = {p for p in relevant_playables if p.id != 1 and p.in_library}
+    playables_not_in_lib = {p for p in relevant_playables if p.id != 1 and not p.in_library}
     return render(request, 'configurator/shelfspot_select.html', {
         'shelfspot': get_object_or_404(ShelfSpot, pk=shelfspot_id),
         'search_txt': search_txt,
-        "selected_playables": sorted(selected_playables, key=lambda x: x.created_at)
+        "playables_in_lib": sorted(playables_in_lib, key=lambda x: x.created_at),
+        "playables_not_in_lib": sorted(playables_not_in_lib, key=lambda x: x.created_at),
     })

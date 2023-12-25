@@ -1,3 +1,4 @@
+import datetime
 import json
 
 import requests
@@ -79,12 +80,14 @@ class Token(models.Model):
 class Playable(models.Model):
     name = models.CharField(max_length=256)
     image = models.BinaryField()
+    image_url = models.CharField(max_length=512)
     uri = models.CharField(max_length=512)
     external_url = models.CharField(max_length=512)
     href = models.CharField(max_length=512)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     json_response = models.CharField(max_length=1024 * 32)
+    in_library = models.BooleanField(default=False)
 
     def __str__(self):
         return str(type(self).name) + " " + str(self.name)
@@ -96,54 +99,27 @@ class Album(Playable):
 
     @staticmethod
     def from_json(json_dict, save=False):
-        # {'album_group': 'album',
-        #                 'album_type': 'album',
-        #                 'artists': [{'external_urls': {'spotify': 'https://open.spotify.com/artist/0cbL6CYnRqpAxf1evwUVQD'},
-        #                              'href': 'https://api.spotify.com/v1/artists/0cbL6CYnRqpAxf1evwUVQD',
-        #                              'id': '0cbL6CYnRqpAxf1evwUVQD',
-        #                              'name': 'Die Ärzte',
-        #                              'type': 'artist',
-        #                              'uri': 'spotify:artist:0cbL6CYnRqpAxf1evwUVQD'}],
-        #                 'available_markets': [...],
-        #                 'external_urls': {'spotify': 'https://open.spotify.com/album/1NLRh73eGolvxR1lenP5nQ'},
-        #                 'href': 'https://api.spotify.com/v1/albums/1NLRh73eGolvxR1lenP5nQ',
-        #                 'id': '1NLRh73eGolvxR1lenP5nQ',
-        #                 'images': [{'height': 640,
-        #                             'url': 'https://i.scdn.co/image/ab67616d0000b273a41156872ab2a0e27bd88cbe',
-        #                             'width': 640},
-        #                            {'height': 300,
-        #                             'url': 'https://i.scdn.co/image/ab67616d00001e02a41156872ab2a0e27bd88cbe',
-        #                             'width': 300},
-        #                            {'height': 64,
-        #                             'url': 'https://i.scdn.co/image/ab67616d00004851a41156872ab2a0e27bd88cbe',
-        #                             'width': 64}],
-        #                 'name': '13',
-        #                 'release_date': '1998-05-25',
-        #                 'release_date_precision': 'day',
-        #                 'total_tracks': 17,
-        #                 'type': 'album',
-        #                 'uri': 'spotify:album:1NLRh73eGolvxR1lenP5nQ'}
-
         if isinstance(json_dict, str):
             json_dict = json.loads(json_dict)
-        largest_img_url = max(json_dict["images"], key=lambda x: x["height"] * x["width"])["url"]
-        print(f"Loading picture for '{json_dict['name']}' from {largest_img_url}")
-        resp = requests.get(largest_img_url)
-        if resp.status_code != 200:
-            raise ConnectionError()  # todo: fixme
-        print("Got image")
-        img = resp.content
+
+        largest_img_url = max(json_dict["images"], key=lambda x: x.get("height", 1) * x.get("width", 1))["url"]
+        # resp = requests.get(largest_img_url)
+        # if resp.status_code != 200:
+        #     raise ConnectionError()  # todo: fixme
+        # print("Got image")
+        # img = resp.content
         external_url = json_dict["external_urls"]["spotify"]
         artist = json_dict["artists"][0]["name"]
         album = Album(name=json_dict["name"],
-                      image=img,
+                      image=b"",
                       uri=json_dict["uri"],
                       external_url=external_url,
                       href=json_dict["href"],
                       json_response=json.dumps(json_dict),
                       release_date=json_dict["release_date"],
                       artist=artist,
-                      )
+                      image_url=largest_img_url
+                )
         if save:
             album.save()
         return album

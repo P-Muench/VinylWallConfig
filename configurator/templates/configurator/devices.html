@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Devices</title>
+</head>
+
+<body>
+{% if devices_list %}
+    <form action="{% url 'configurator:activate_device' %}" method="post">
+    {% csrf_token %}
+    <ul>
+
+        {% for device in devices_list %}
+            <li>{{ device.device_name }} -- {{ device.device_type }} [{{ device.active }}]
+                {% if not device.active %}
+                    <button name="device_id" value="{{ device.id }}">Activate</button>
+                {% endif %}
+                {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+            </li>
+        {% endfor %}
+
+    </ul>
+    </form>
+{% else %}
+    <p>No devices are available.</p>
+{% endif %}
+<form action="{% url 'configurator:devices' %}" method="post">
+    {% csrf_token %}
+    <button name="reload" value="reload">Reload</button>
+</form>
+</body>
+</html>

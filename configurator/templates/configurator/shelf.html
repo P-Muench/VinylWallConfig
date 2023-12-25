@@ -42,23 +42,19 @@
                                 {% if spot.playable %}
                                     <td>
                                         <div class="container">
-                                          <img src="{% url 'configurator:album_cover' spot.playable.id %}"
+                                          <img src="{{ spot.playable.image_url }}"
                                                alt="{{ spot.playable.name }}" onclick="alert('{{ spot.playable.uri }}')"
                                                  width="200">
-{#                                          <div class="bottom-left">Bottom Left</div>#}
                                             <div class="top-left">
                                                 <form action="{% url 'configurator:remove_playable' spot.id %}">
                                                     <input type="submit" value="Remove" />
                                                 </form>
                                             </div>
-{#                                            <div class="top-left"><button onclick="open('{% url 'configurator:remove_playable' spot.id %}')">Remove</button></div>#}
                                           <div class="top-right">
                                               <form action="{% url 'configurator:select_playable' spot.id %}">
                                                     <input type="submit" value="Edit" />
                                                 </form>
                                           </div>
-{#                                          <div class="bottom-right">Bottom Right</div>#}
-{#                                          <div class="centered">Centered</div>#}
                                         </div>
                                     </td>
                                 {% else %}

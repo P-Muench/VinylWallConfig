@@ -13,6 +13,8 @@ urlpatterns = [
     path('', views.active_shelf_view, name='root'),
     path('shelf/<int:shelf_id>', views.shelf_view, name='shelf'),
     path('active_shelf/', views.active_shelf_view, name='active_shelf'),
+    path('three_shelf/<int:shelf_id>', views.three_shelf_view, name='three_shelf'),
+    path('three_shelf_json/<int:shelf_id>', views.three_shelf_json, name='three_shelf_json'),
     path('album_cover/<int:playable_id>', views.album_cover, name='album_cover'),
 
     path('devices/', views.devices, name='devices'),
@@ -28,6 +30,9 @@ urlpatterns = [
     path('shelf/add_left/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("left"), name='add_left'),
     path('shelf/add_top/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("top"), name='add_top'),
     path('shelf/add_bottom/<int:shelf_id>,<negint:row_col_id>', views.add_shelfspot("bottom"), name='add_bottom'),
+
+    path('shelf/add/', views.add_shelfspot_json, name="add_shelfspot_json"),
+    path('shelf/remove/', views.remove_shelfspot_json, name="add_shelfspot_json"),
 
     path('shelf/remove_right/<int:shelf_id>,<negint:row_col_id>', views.remove_shelfspot("right"), name='remove_right'),
     path('shelf/remove_left/<int:shelf_id>,<negint:row_col_id>', views.remove_shelfspot("left"), name='remove_left'),

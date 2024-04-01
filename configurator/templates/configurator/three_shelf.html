@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>My first three.js app</title>
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@v0.163.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@v0.163.0/examples/jsm/"
+      }
+    }
+</script>
+{% load static %}
+<script type="module" src="{% static 'configurator/js/ShelfRenderer.js' %}"></script>
+<link rel="stylesheet" href="{% static 'configurator/style.css' %}"></link>
+<body>
+{% csrf_token %}
+<div class="canvas-container">
+    <canvas class="ShelfCanvas" id=ShelfCanvas{{ shelf.id }}></canvas>
+    <button id='editButton'>Edit Layout</button>
+</div>
+<script>
+
+</script>
+</body>
+</html>

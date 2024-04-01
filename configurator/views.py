@@ -1,8 +1,9 @@
+import json
 import re
 from typing import Literal
 
 import requests
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 
@@ -26,6 +27,16 @@ def active_shelf_view(request):
     return render_shelf(request, shelf)
 
 
+def three_shelf_json(request, shelf_id):
+    shelf = get_object_or_404(Shelf, pk=shelf_id)
+    return render_shelf_three_json(request, shelf)
+
+
+def three_shelf_view(request, shelf_id):
+    shelf = get_object_or_404(Shelf, pk=shelf_id)
+    return render_shelf_three(request, shelf)
+
+
 def devices(request):
     print(request.POST)
     do_reload = request.POST.get("reload", None)
@@ -36,6 +47,7 @@ def devices(request):
     return render(request, 'configurator/devices.html', {
         'devices_list': devices
     })
+
 
 def activate_device(request):
     device_id = request.POST.get("device_id", -1)
@@ -49,8 +61,6 @@ def activate_device(request):
     new_active_device.save()
 
     return HttpResponseRedirect(reverse("configurator:devices"))
-
-    # return render_shelf(request, shelf=new_active_device)
 
 
 def activate_shelf(request, shelf_id):
@@ -99,6 +109,22 @@ def render_shelf(request, shelf):
         'spot_matrix': generate_spot_matrix(spot_list),
         'shelf': shelf
     })
+
+def render_shelf_three(request, shelf):
+    return render(request, 'configurator/three_shelf.html', {
+        'shelf': shelf
+    })
+
+def render_shelf_three_json(request, shelf):
+    spot_list = shelf.shelfspot_set.all()
+    return JsonResponse({'shelf_id': shelf.id, 'spot_matrix': generate_json_spot_matrix(spot_list)})
+
+
+def generate_json_spot_matrix(spot_list):
+    spot_matrix = []
+    for s in spot_list:
+        spot_matrix.append(s.to_dict())
+    return spot_matrix
 
 
 def generate_spot_matrix(spot_list):
@@ -154,8 +180,52 @@ def add_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
 
     return add_spot
 
+def add_shelfspot_json(request):
+    try:
+        row_id = request.POST["row_id"]
+        shelf_id = request.POST["shelf_id"]
+        col_id = request.POST["col_id"]
+    except KeyError as e:
+        if request.content_type == "application/json":
+            json_body = json.loads(request.body.decode("utf-8"))
+            row_id = json_body["row_id"]
+            shelf_id = json_body["shelf_id"]
+            col_id = json_body["col_id"]
+
+    num_shelves = ShelfSpot.objects.filter(shelf_id=shelf_id, row_index=row_id, col_index=col_id).count()
+    if num_shelves > 0:
+        raise Exception("Shelf exists already")
+    new_spot = ShelfSpot(row_index=row_id, col_index=col_id, shelf_id=shelf_id, playable_id=1)
+    new_spot.save()
+    return HttpResponseRedirect(reverse("configurator:three_shelf_json", args=(shelf_id,)))
+
+def remove_shelfspot_json(request):
+    try:
+        row_id = request.POST["row_id"]
+        shelf_id = request.POST["shelf_id"]
+        col_id = request.POST["col_id"]
+    except KeyError as e:
+        if request.content_type == "application/json":
+            json_body = json.loads(request.body.decode("utf-8"))
+            row_id = json_body["row_id"]
+            shelf_id = json_body["shelf_id"]
+            col_id = json_body["col_id"]
+
+    num_shelves = ShelfSpot.objects.filter(shelf_id=shelf_id, row_index=row_id, col_index=col_id).count()
+    if num_shelves == 0:
+        raise Exception("Shelf does not exist")
+    shelf = get_object_or_404(ShelfSpot, shelf_id=shelf_id, row_index=row_id, col_index=col_id)
+    shelf.delete()
+    return HttpResponseRedirect(reverse("configurator:three_shelf_json", args=(shelf_id,)))
+
 
 def remove_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
+    """
+    Remove a shelf spot from a given direction.
+
+    :param direction: The direction from which to remove the shelf spot. Must be one of "left", "right", "top", or "bottom".
+    :return: The remove_spot function.
+    """
     valid_dirs = ["left", "right", "top", "bottom"]
     if direction not in valid_dirs:
         raise LookupError(f"Direction {direction} not valid. Only {valid_dirs}")

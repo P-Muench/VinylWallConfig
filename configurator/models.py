@@ -164,7 +164,7 @@ class Playable(models.Model):
         return str(type(self).name) + " " + str(self.name)
 
     def to_dict(self):
-        return {"name": self.name, "image_url": self.image_url, "in_library": self.in_library}
+        return {"id": self.id, "name": self.name, "image_url": self.image_url, "in_library": self.in_library}
 
 
 class Album(Playable):
@@ -294,4 +294,4 @@ class ShelfSpot(models.Model):
         return f"Spot ({self.col_index}, {self.row_index}) [{self.playable.name[:20]}]"
 
     def to_dict(self):
-        return {"row": self.row_index, "col": self.col_index, "playable": self.playable.to_dict()}
+        return {"id": self.id, "row": self.row_index, "col": self.col_index, "playable": self.playable.to_dict()}

@@ -1,4 +1,5 @@
 import json
+import math
 import re
 from typing import Literal
 
@@ -35,6 +36,11 @@ def three_shelf_json(request, shelf_id):
 def three_shelf_view(request, shelf_id):
     shelf = get_object_or_404(Shelf, pk=shelf_id)
     return render_shelf_three(request, shelf)
+
+def album_picker(request):
+    return render(request, 'configurator/album_picker.html', {
+
+    })
 
 
 def devices(request):
@@ -267,16 +273,28 @@ def remove_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
     return remove_spot
 
 
-def set_playable(request, shelfspot_id):
-    playable_id = request.POST["playable_id"]
+def set_playable(request):
+    try:
+        playable_id = request.POST["playable_id"]
+        shelfspot_id = request.POST["shelfspot_id"]
+    except KeyError as e:
+        if request.content_type == "application/json":
+            json_body = json.loads(request.body.decode("utf-8"))
+            playable_id = json_body["playable_id"]
+            shelfspot_id = json_body["shelfspot_id"]
+
+    print(shelfspot_id, playable_id)
     shelfspot = get_object_or_404(ShelfSpot, pk=shelfspot_id)
     playable = get_object_or_404(Playable, pk=playable_id)
 
     shelfspot.playable_id = playable.id
+
     playable.in_library = True
     shelfspot.save()
     playable.save()
-    return HttpResponseRedirect(reverse("configurator:shelf", args=(shelfspot.shelf_id,)))
+
+
+    return HttpResponseRedirect(reverse("configurator:three_shelf_json", args=(shelfspot.shelf_id,)))
 
 
 def remove_playable(request, shelfspot_id):
@@ -326,3 +344,34 @@ def playable_selection(request, shelfspot_id):
         "playables_in_lib": sorted(playables_in_lib, key=lambda x: x.created_at),
         "playables_not_in_lib": sorted(playables_not_in_lib, key=lambda x: x.created_at),
     })
+
+def playable_library(request):
+    PAGE_LIMIT = 20
+    search_txt = request.GET.get("search_txt", "")
+    page_txt = request.GET.get("page", "1")
+    try:
+        page = int(page_txt)
+        if page < 0:
+            raise ValueError
+    except:
+        page = 1
+
+    if search_txt == "":
+        library_playables = set(Playable.objects.filter(in_library=True))
+        sorted_playables = sorted([p for p in library_playables if p.id != 1], key=lambda x: x.created_at)
+
+    else:
+        add_albums_from_daemon(search_txt)
+        relevant_playables = Playable.objects.filter(name__icontains=search_txt)
+        relevant_playables = (set(relevant_playables)
+                              .union(set(Album.objects.filter(artist__icontains=search_txt)))
+                              .union(set(Playlist.objects.filter(owner__icontains=search_txt)))
+                              .union(set(Playlist.objects.filter(description__icontains=search_txt))))
+
+        sorted_playables = sorted([p for p in relevant_playables if p.id != 1], key=lambda x: (1 - x.in_library, x.created_at))
+        # playables_in_lib = {p for p in relevant_playables if p.id != 1 and p.in_library}
+        # playables_not_in_lib = {p for p in relevant_playables if p.id != 1 and not p.in_library}
+    page_playables: list[Playable] = sorted_playables[(page - 1) * PAGE_LIMIT:page * PAGE_LIMIT]
+    return JsonResponse({'page': page,
+                         'max_page': math.ceil(len(sorted_playables) / PAGE_LIMIT),
+                         'album_list': [p.to_dict() for p in page_playables]})

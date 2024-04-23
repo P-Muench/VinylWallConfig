@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {LightProbeHelper} from 'three/addons/helpers/LightProbeHelper.js';
-import {LightProbeGenerator} from 'three/addons/lights/LightProbeGenerator.js';
-import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import {GUI} from 'three/addons/libs/lil-gui.module.min.js';
+import {MapControls} from 'three/addons/controls/MapControls.js';
+
 
 const ALBUM_WIDTH = 30
 const ALBUM_DEPTH = 1
@@ -12,9 +12,14 @@ const ALBUM_PADDING_VERT = ALBUM_WIDTH * .1
 const SHELF_HEIGHT = 2
 const SHELF_DEPTH = 15;
 const SHELF_ANGLE = -3.14 / 12;
-const FOV = 25;
+const FOV = 54.4;
+const FOV_ALBUMPICKER = 20;
 
 const TEXTURE_CACHE = {};
+
+var mouseDown = [-1, -1];
+
+const loader = new ldloader({root: "#my-loader"});
 
 function loadJSON(path, success, error) {
     var xhr = new XMLHttpRequest();
@@ -50,17 +55,26 @@ class ShelfRenderer {
         this.currentlyHoveredOver = null;
         this.shelfJSON = {};
 
+        this.isPaused = false;
+
         this.renderer = new THREE.WebGLRenderer({canvas: this.canvas, antialias: true});
-        this.renderer.setClearColor(0xffffff, 1);
+        this.renderer.setClearColor(0xffffff);
         this.renderer.setPixelRatio(window.devicePixelRatio);
+        // this.renderer.format = THREE.RGBAFormat
+        // this.renderer.outputEncoding = THREE.sRGBEncoding
+        this.renderer.physicallyCorrectLights = true
+        // this.renderer.toneMappingExposure = 1.1
+
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
 
         this.scene = new THREE.Scene(this.canvas);
 
+        this.backgroundGroup = new THREE.Group();
         this.clear();
         this.canvas.addEventListener('mousemove', this.onMove.bind(this))
         this.canvas.addEventListener('click', this.onClick.bind(this))
+        this.canvas.addEventListener('touch', this.onTouch.bind(this))
     }
 
     get shelfId() {
@@ -69,6 +83,8 @@ class ShelfRenderer {
 
     clear() {
         this.scene.clear()
+        this.loadBackground();
+
         this.shelfspots = new Set();
         this.temporaryShelfs = new Set();
 
@@ -86,7 +102,7 @@ class ShelfRenderer {
     initializeLights() {
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.5);
         hemiLight.position.set(50, -36, 20)
-        // this.scene.add(hemiLight);
+        this.scene.add(hemiLight);
 
         // const hemiLightHelper = new THREE.HemisphereLightHelper(hemiLight, 10);
         // this.scene.add(hemiLightHelper);
@@ -105,13 +121,17 @@ class ShelfRenderer {
         // light.shadow.camera.bottom=-100;
 
         const light = new THREE.PointLight(0xfff5f6, 2, 1000, 0);
+        // THREE.Color()
+        // light.color.a
         light.castShadow = true
-        light.position.set(50, 20, 60);
+        light.position.set(20, 50, 200);
         // light.target.position.set(50, -40, 0)
-        light.shadow.mapSize.width = 512; // default
-        light.shadow.mapSize.height = 512; // default
+        light.shadow.mapSize.width = 1024 * 4; // default
+        light.shadow.mapSize.height = 1024 * 4; // default
         light.shadow.camera.near = 0.5; // default
         light.shadow.camera.far = 1000; // default
+        // console.log(light.shadow.camera.fov)
+        // light.shadow.camera.fov = 45
         // light.shadow.camera.left=-100;
         // light.shadow.camera.right=100;
         // light.shadow.camera.top=100;
@@ -126,29 +146,159 @@ class ShelfRenderer {
         // this.scene.add(lightHelper)
     }
 
+    loadBackground() {
+        console.log(this.backgroundGroup.children.length)
+        if (this.backgroundGroup.children.length === 0) {
+            const loader = new GLTFLoader();
+            loader.load(
+                // resource URL
+                '/static/configurator/assets/monstera.glb',
+                // called when the resource is loaded
+                function (gltf) {
+                    const monsti = gltf.scene.children[0];
+                    const bb = new THREE.Box3();
+                    bb.setFromObject(monsti);
+                    const center = new THREE.Vector3();
+                    bb.getCenter(center)
+                    let bsphere = bb.getBoundingSphere(new THREE.Sphere(center));
+                    // this.scene.add(monsti);
+                    this.backgroundGroup.add(monsti)
+                    const scale = bsphere.radius * 2 * 60;
+                    monsti.scale.copy(new THREE.Vector3(scale, scale, scale))
+                    monsti.position.copy(new THREE.Vector3(140, -150, 40))
+                    monsti.children[0].children[0].children[0].children[0].castShadow = true
+                    monsti.children[0].children[0].children[1].children[0].castShadow = true
+                }.bind(this),
+                // called while loading is progressing
+                function (xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                // called when loading has errors
+                function (error) {
+                    console.log('An error happened');
+                    console.log(error)
+                }
+            );
+
+            const couchloader = new GLTFLoader();
+            couchloader.load(
+                // resource URL
+                '/static/configurator/assets/sofa.glb',
+                // called when the resource is loaded
+                function (gltf) {
+                    const couch = gltf.scene.children[0];
+                    // this.scene.add(couch);
+                    this.backgroundGroup.add(couch)
+                    const scale = 2.5
+                    couch.scale.copy(new THREE.Vector3(scale, scale, scale))
+                    couch.position.copy(new THREE.Vector3(0, -190, 50))
+                    couch.rotateZ(Math.PI / 2)
+                    couch.children[0].children[0].castShadow = true
+                }.bind(this),
+                // called while loading is progressing
+                function (xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                // called when loading has errors
+                function (error) {
+                    console.log('An error happened');
+                    console.log(error)
+                }
+            );
+
+            const geometry = new THREE.BoxGeometry(1000, 1000, .1);
+            const material = new THREE.MeshStandardMaterial({color: 0xeeeeee});
+            const wallpaperMesh = new THREE.Mesh(geometry, material);
+            wallpaperMesh.translateZ(-0.05)
+            wallpaperMesh.receiveShadow = true
+            // this.scene.add(wallpaperMesh);
+            this.backgroundGroup.add(wallpaperMesh)
+            const wallpaperTextureLoader = new THREE.TextureLoader();
+            const wallpaperDispTextureLoader = new THREE.TextureLoader();
+            const wallpaperNormTextureLoader = new THREE.TextureLoader();
+            const wallpaper_texture_indicator = "__WALLPAPER";
+            if (TEXTURE_CACHE[wallpaper_texture_indicator] !== undefined) {
+                wallpaperMesh.material.copy(TEXTURE_CACHE[wallpaper_texture_indicator]);
+            } else {
+                const textureUrl = "/static/configurator/imgs/Wallpaper_Woodchip_001_basecolor.jpg";
+                const aoTextureURL = "/static/configurator/imgs/Wallpaper_Woodchip_001_ambientOcclusion.jpg";
+                const normTextureURL = "/static/configurator/imgs/Wallpaper_Woodchip_001_normal.jpg";
+                wallpaperTextureLoader.load(
+                    // resource URL
+                    textureUrl,
+                    // onLoad callback
+                    function (textureMap) {
+                        // in this example we create the material when the texture is loaded
+                        // textureMap.colorSpace = THREE.SRGBColorSpace
+                        textureMap.wrapS = THREE.RepeatWrapping;
+                        textureMap.wrapT = THREE.RepeatWrapping;
+                        wallpaperNormTextureLoader.load(normTextureURL,
+                            function (normTexture) {
+                                // normTexture.colorSpace = THREE.SRGBColorSpace
+                                normTexture.wrapS = THREE.RepeatWrapping;
+                                normTexture.wrapT = THREE.RepeatWrapping;
+                                wallpaperDispTextureLoader.load(
+                                    // resource URL
+                                    aoTextureURL,
+                                    // onLoad callback
+                                    function (aoTexture) {
+                                        // in this example we create the material when the texture is loaded
+                                        // aoTexture.colorSpace = THREE.SRGBColorSpace
+                                        aoTexture.wrapS = THREE.RepeatWrapping;
+                                        aoTexture.wrapT = THREE.RepeatWrapping;
+                                        const shelfMaterial = new THREE.MeshStandardMaterial({
+                                            map: textureMap,
+                                            aoMap: aoTexture,
+                                            normalMap: normTexture
+                                        });
+                                        const repeat = 14;
+                                        shelfMaterial.map.repeat.copy(new THREE.Vector2(repeat, repeat))
+                                        shelfMaterial.aoMap.repeat.copy(new THREE.Vector2(repeat, repeat))
+                                        shelfMaterial.normalMap.repeat.copy(new THREE.Vector2(repeat, repeat))
+                                        console.log(shelfMaterial)
+                                        wallpaperMesh.material = shelfMaterial;
+                                        TEXTURE_CACHE[wallpaper_texture_indicator] = shelfMaterial
+                                    },
+                                    // onProgress callback currently not supported
+                                    undefined, function (err) {
+                                        console.log(err)
+                                    }
+                                );
+                            }.bind(this))
+                    },
+                    // onProgress callback currently not supported
+                    undefined, function (err) {
+                        console.log(err)
+                    }
+                );
+            }
+
+        } else {
+            console.log("already loaded")
+        }
+        this.scene.add(this.backgroundGroup)
+    }
+
+
     addViewableGroup(viewableGroup) {
         this.viewableGeometries.add(viewableGroup);
     }
 
+    togglePause() {
+        this.isPaused = !this.isPaused;
+    }
 
     initializeControls(canvas) {
-        this.controls = new OrbitControls(this.camera, canvas);
-        this.controls.minDistance = 1;
-        this.controls.maxDistance = 1000;
-        this.controls.enablePan = true;
-        this.controls.enableZoom = true;
     }
 
     initializeCamera() {
-        this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 1000);
-        this.camera.position.z = 80;
-        this.camera.position.y = 0;
-        this.camera.position.x = 0;
+        this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 2000);
         this.camera.lookAt(0, 0, 0)
         this.scene.add(this.camera)
     }
 
     resizeScene() {
+        console.log("Resize")
         const bb = new THREE.Box3();
         bb.setFromObject(this.viewableGeometries);
         const minX = bb.min.x
@@ -166,36 +316,45 @@ class ShelfRenderer {
             ((maxY - minY) / 2) / tan(vert_fov / 2)) * 1.1;
         this.camera.position.x = (maxX + minX) / 2;
         this.camera.position.y = (maxY + minY) / 2;
-        this.camera.position.z = dist;
+        this.camera.position.z = dist * 1.4;
+        this.camera.userData.originalPosition = new THREE.Vector3().copy(this.camera.position)
+        this.camera.lookAt(this.boundingSphere.center)
+        // this.spotlight.shadow.camera.updateProjectionMatrix ()
     }
 
     loadFromJson(shelfJSON) {
         this.clear()
-
         this.shelfJSON = shelfJSON
         for (let i = 0; i < shelfJSON["spot_matrix"].length; i++) {
             let shelfspot = new ShelfSpot(shelfJSON["spot_matrix"][i]);
 
             shelfspot.setOnAlbumClick((() => {
-                // this.fetchAndReload("/shelf/add/", {
-                //     "row_id": 1,
-                //     "shelf_id": this.shelfId,
-                //     "col_id": 1
-                // })
+                this.togglePause();
+                openAlbumPicker(loader, (id) => {
+                    this.fetchAndReload("/shelfspot/set/", {
+                        "playable_id": id,
+                        "shelfspot_id": shelfspot.jsonData["id"]
+                    })
+                    disposeAlbumPickerDOM();
+                    this.togglePause()
+                });
             }))
 
             this.shelfspots.add(shelfspot);
             this.scene.add(shelfspot);
             this.addViewableGroup(shelfspot);
         }
-        this.addDebugGUI();
+        // this.addDebugGUI();
         this.finalizeScene()
     }
 
-    addDebugGUI(){
+    addDebugGUI() {
         const gui = new GUI()
         const cubeFolder = gui.addFolder('Light')
         cubeFolder.add(this.spotlight, 'intensity', 0, Math.PI * 2)
+        cubeFolder.add(this.spotlight.position, 'x', 0, 100)
+        cubeFolder.add(this.spotlight.position, 'y', -50, 100)
+        cubeFolder.add(this.spotlight.position, 'z', 0, 1000)
         // cubeFolder.add(cube.rotation, 'y', 0, Math.PI * 2)
         // cubeFolder.add(cube.rotation, 'z', 0, Math.PI * 2)
         cubeFolder.open()
@@ -207,19 +366,18 @@ class ShelfRenderer {
             this.shelfspots.forEach((spot) => {
                 spDict[[spot.row, spot.col]] = spot;
                 spot.setOnShelfClick((() => {
-                            this.fetchAndReload("/shelf/remove/", {
-                                "row_id": spot.row,
-                                "shelf_id": this.shelfId,
-                                "col_id": spot.col
-                            }, this.toggleEditMode.bind(this))
-                        }))
+                    this.fetchAndReload("/shelf/remove/", {
+                        "row_id": spot.row,
+                        "shelf_id": this.shelfId,
+                        "col_id": spot.col
+                    }, this.toggleEditMode.bind(this))
+                }))
             })
             this.shelfspots.forEach((spot) => {
                 [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach((t) => {
                     const row_delta = t[0];
                     const col_delta = t[1];
                     const new_index = [spot.row + row_delta, spot.col + col_delta];
-                    console.log(new_index)
                     if (spDict[new_index] === undefined) {
                         let shelfspot = new ShelfSpot({
                             "row": spot.row + row_delta,
@@ -246,10 +404,13 @@ class ShelfRenderer {
                 spDict[[spot.row, spot.col]] = spot;
             })
         } else {
+            this.shelfspots.forEach((spot) => {
+                spot.removeOnShelfClick();
+            })
             this.temporaryShelfs.forEach((shelfspot) => {
 
-                        this.scene.remove(shelfspot);
-                        this.viewableGeometries.remove(shelfspot);
+                this.scene.remove(shelfspot);
+                this.viewableGeometries.remove(shelfspot);
             })
             this.temporaryShelfs.clear();
         }
@@ -260,16 +421,21 @@ class ShelfRenderer {
         this.boundingSphere = this.getViewableBoundingSphere()
         if (this.boundingSphere !== null) {
             this.camera.lookAt(this.boundingSphere.center);
-            this.controls.target.copy(this.boundingSphere.center)
+            // this.controls.target.copy(this.boundingSphere.center)
             this.spotlight.lookAt(this.boundingSphere.center)
         }
 
         resizeRendererToDisplaySize(this.renderer)
         this.camera.aspect = this.canvas.clientWidth / this.canvas.clientHeight;
         this.resizeScene();
+        this.spotlight.shadow.camera.lookAt(this.boundingSphere.center)
+        this.renderer.shadowMap.autoUpdate = false
+        this.renderer.shadowMap.needsUpdate = true
         this.camera.updateProjectionMatrix();
-        this.controls.update()
+        // this.controls.update()
         this.renderer.render(this.scene, this.camera);
+        // setTimeout(this.generatePointLights.bind(this), 1000)
+
         this.animate()
     }
 
@@ -293,6 +459,14 @@ class ShelfRenderer {
         return null
     }
 
+    onTouch(event) {
+        event.preventDefault();
+        event.clientX = event.touches[0].clientX;
+        event.clientY = event.touches[0].clientY;
+        this.onMove(event);
+        this.onClick(event);
+    }
+
     onClick(event) {
         if (this.currentlyHoveredOver && this.currentlyHoveredOver.onclick !== undefined) this.currentlyHoveredOver.onclick(event);
     }
@@ -301,6 +475,21 @@ class ShelfRenderer {
         const pointer = new THREE.Vector2();
         pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
         pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        const originalPosition = this.camera.userData.originalPosition;
+
+        const leeWay = 3
+        // const transform = function(p) {return Math.sign(p) * Math.sqrt(Math.abs(p))}
+        const transform = function (p) {
+            return p
+        }
+        const newPos = new THREE.Vector3(
+            originalPosition.x + transform(pointer.x) * leeWay,
+            originalPosition.y + transform(pointer.y) * leeWay,
+            originalPosition.z)
+        this.camera.position.copy(newPos)
+        this.camera.lookAt(this.boundingSphere.center)
+        // console.log(newPos)
+        // console.log(pointer)
         this.raycaster.setFromCamera(pointer, this.camera);
 
         const intersects = this.raycaster.intersectObjects(this.scene.children, true);
@@ -322,7 +511,7 @@ class ShelfRenderer {
         }
     }
 
-    fetchAndReload(url, data, postF) {
+    fetchAndReload(url, data, postF = () => {}) {
         fetch(url, {
             method: "POST",
             body: JSON.stringify(data),
@@ -342,48 +531,47 @@ class ShelfRenderer {
     generatePointLights() {
         this.render();
 
-        // [new THREE.Vector3(0, -12, 0),
-        // new THREE.Vector3(30, 0, -10),
-        // // new THREE.Vector3(20, -20, 20),
-        // // new THREE.Vector3(20, -40, 20),
-        // //     new THREE.Vector3(50, -20, 20),
-        // //     new THREE.Vector3(20, 0, 20),
-        // ]
-        this.scene.userData.shelves.forEach((shelfmesh) => {
+        this.shelfspots.forEach((shelf) => {
+            const shelfmesh = shelf.shelfMesh
             let pos = shelfmesh.position;
-            const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(64);
-            let cubeCamera = new THREE.CubeCamera(.1, 50, cubeRenderTarget);
+            const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(64, {
+                generateMipmaps: true,
+                minFilter: THREE.LinearMipmapLinearFilter,
+            });
+            let cubeCamera = new THREE.CubeCamera(.001, 50, cubeRenderTarget);
 
-            cubeCamera.position.set(pos.x, pos.y, pos.z)
+            cubeCamera.position.set(pos.x, pos.y + 2.5, pos.z - 2)
             // console.log(pos)
             // // cubeCamera
             // for (let i = 0; i < cubeCamera.children.length; i++) {
             //     let childCam = cubeCamera.children[i];
             //     this.scene.add(new THREE.CameraHelper(childCam))
             // }
-            // this.scene.add(cubeCamera)
+            this.scene.add(cubeCamera)
             // probe
             let lightProbe = new THREE.LightProbe();
-            lightProbe.intensity = .2
+            lightProbe.intensity = 1
 
-            lightProbe.position.copy(pos)
-            // this.scene.add(lightProbe);
+            lightProbe.position.copy(cubeCamera.position)
+            this.scene.add(lightProbe);
             //
             // shelfmesh.visible = false
-            // cubeCamera.update(this.renderer, this.scene);
+            cubeCamera.update(this.renderer, this.scene);
             // shelfmesh.visible = true
 
-            // lightProbe.copy(LightProbeGenerator.fromCubeRenderTarget(this.renderer, cubeRenderTarget));
-            // lightProbe.position.copy(pos)
-            // lightProbe.intensity=2
+            lightProbe.copy(LightProbeGenerator.fromCubeRenderTarget(this.renderer, cubeRenderTarget));
+            lightProbe.position.copy(cubeCamera.position)
+            // lightProbe.rotateX(- Math.PI / 4)
+            lightProbe.intensity = .2
             // lightProbe.castShadow=true
-            // this.scene.add(new LightProbeHelper(lightProbe, 5));
+            this.scene.add(new LightProbeHelper(lightProbe, 1.5));
 
             // shelfmesh.material.envMap = cubeRenderTarget.texture;
+
             // const chromeMaterial = new THREE.MeshStandardMaterial(
-            //     { color: 0xffffff, envMap: cubeRenderTarget.texture, } );
-            // const car = new THREE.Mesh( new THREE.BoxGeometry(36, 3, 20), chromeMaterial );
-            // car.position.copy(pos)
+            //     { envMap: cubeRenderTarget.texture, } );
+            // const car = new THREE.Mesh( new THREE.SphereGeometry(1, 10, 10), chromeMaterial );
+            // car.position.copy(cubeCamera.position)
             // this.scene.add( car );
             this.render()
         })
@@ -396,12 +584,14 @@ class ShelfRenderer {
     }
 
     render() {
-        if (resizeRendererToDisplaySize(this.renderer)) {
-            this.camera.aspect = this.canvas.clientWidth / this.canvas.clientHeight;
-            this.resizeScene();
-            this.camera.updateProjectionMatrix();
+        if (!this.isPaused) {
+            if (resizeRendererToDisplaySize(this.renderer)) {
+                this.camera.aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+                this.resizeScene();
+                this.camera.updateProjectionMatrix();
+            }
+            this.renderer.render(this.scene, this.camera);
         }
-        this.renderer.render(this.scene, this.camera);
     }
 }
 
@@ -431,6 +621,14 @@ class ShelfSpot extends THREE.Group {
         this.shelfMesh.onclick = f
     }
 
+    removeOnShelfClick() {
+        this.shelfMesh.onclick = undefined
+    }
+
+    removeOnAlbumClick() {
+        this.album.mesh.onclick = undefined
+    }
+
     #init(drawAlbum, drawShelf) {
 
         const albumX = (2 * ALBUM_PADDING_HOR + ALBUM_WIDTH) * this.col;
@@ -441,7 +639,7 @@ class ShelfSpot extends THREE.Group {
         if (drawAlbum) {
             album = new Playable(this.jsonData["playable"])
             albumMesh = album.mesh
-            albumMesh.position.set(albumX, albumY, ALBUM_DEPTH / 2)
+            albumMesh.position.set(albumX, albumY, ALBUM_DEPTH / 2 - Math.sin(SHELF_ANGLE) * ALBUM_WIDTH / 2)
         }
 
         let shelfMesh
@@ -450,7 +648,7 @@ class ShelfSpot extends THREE.Group {
 
             const shelfX = albumX;
             const shelfY = albumY - (Math.cos(SHELF_ANGLE) * ALBUM_WIDTH / 2 + SHELF_HEIGHT / 2);
-            const shelfZ = (+Math.sin(SHELF_ANGLE) * ALBUM_WIDTH / 2 + SHELF_DEPTH / 2)
+            const shelfZ = (SHELF_DEPTH / 2)
             shelfMesh.position.set(shelfX, shelfY, shelfZ)
         }
 
@@ -476,6 +674,10 @@ class Playable {
         return this.jsonData["name"]
     }
 
+    get id() {
+        return this.jsonData["id"]
+    }
+
     get imgUrl() {
         return this.jsonData["image_url"]
     }
@@ -484,8 +686,10 @@ class Playable {
         let albumGeometry = new THREE.BoxGeometry(ALBUM_WIDTH, ALBUM_WIDTH, ALBUM_DEPTH);
 
         const albumMaterial = new THREE.MeshStandardMaterial({
-            color: new THREE.Color().setHSL(Math.random(), 1, 0.75, THREE.SRGBColorSpace),
-            roughness: 0.5, metalness: 0, flatShading: true
+            color: new THREE.Color().setHSL(1, 1, 1, THREE.SRGBColorSpace),
+            roughness: 0.5,
+            metalness: 0,
+            flatShading: true
         });
 
         let albumMesh = new THREE.Mesh(albumGeometry, albumMaterial);
@@ -504,11 +708,13 @@ class Playable {
                     this.imgUrl,
                     // onLoad callback
                     function (texture) {
+                        texture.colorSpace = THREE.SRGBColorSpace
                         // in this example we create the material when the texture is loaded
                         const textureMaterial = new THREE.MeshStandardMaterial({
                             map: texture,
-                            roughness: 0.7,
-                            metalness: 0
+                            roughness: 0.4,
+                            metalness: 0,
+                            flatShading: true,
                         });
                         albumMesh.material = textureMaterial;
                         TEXTURE_CACHE[this.imgUrl] = textureMaterial;
@@ -533,6 +739,7 @@ function makeShelf() {
     let shelfMesh = new THREE.Mesh(shelfGeometry, shelfMaterial);
 
     shelfMesh.receiveShadow = true
+    shelfMesh.castShadow = true
 
     const shelfTextureLoader = new THREE.TextureLoader();
     const shelfDispTextureLoader = new THREE.TextureLoader();
@@ -548,6 +755,7 @@ function makeShelf() {
             // onLoad callback
             function (textureMap) {
                 // in this example we create the material when the texture is loaded
+                textureMap.colorSpace = THREE.SRGBColorSpace
                 shelfMesh.material.map = textureMap;
                 shelfDispTextureLoader.load(
                     // resource URL
@@ -555,6 +763,7 @@ function makeShelf() {
                     // onLoad callback
                     function (aoTexture) {
                         // in this example we create the material when the texture is loaded
+                        aoTexture.colorSpace = THREE.SRGBColorSpace
                         const shelfMaterial = new THREE.MeshStandardMaterial({map: textureMap, aoMap: aoTexture});
                         shelfMesh.material = shelfMaterial;
                         TEXTURE_CACHE[shelf_texture_indicator] = shelfMaterial
@@ -574,12 +783,297 @@ function makeShelf() {
     return shelfMesh;
 }
 
-const button = document.getElementById("editButton")
-for (let i = 0; i < document.getElementsByClassName("ShelfCanvas").length; i++) {
-    let el = document.getElementsByClassName("ShelfCanvas").item(i);
-    let sr = new ShelfRenderer(el);
-    loadJSON("/three_shelf_json/" + el.id.substring(11), (data) => {
-        sr.loadFromJson.bind(sr)(data);
-        button.addEventListener("click", sr.toggleEditMode.bind(sr))
-    }, console.log);
+class AlbumPicker {
+
+    constructor(canvas, loader = null, callbackAlbumClick = (id) => {
+    }) {
+        this.canvas = canvas;
+        this.loader = loader;
+        this.callbackAlbumClick = callbackAlbumClick
+
+        this.raycaster = new THREE.Raycaster();
+        this.currentlyHoveredOver = null;
+
+        this.renderer = new THREE.WebGLRenderer({canvas: this.canvas, antialias: true});
+        this.renderer.setClearColor(0x111111);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.physicallyCorrectLights = true
+
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
+
+        this.scene = new THREE.Scene(this.canvas);
+
+        this.clear();
+        this.canvas.addEventListener('mousemove', this.onMove.bind(this))
+        this.canvas.addEventListener('mousedown', (event) => {
+            mouseDown = [event.clientX, event.clientY]
+        })
+        this.canvas.addEventListener('mouseup', this.onClick.bind(this))
+
+        // this.canvas.addEventListener('touch', this.onTouch.bind(this))
+        // window.addEventListener('scroll', (event) => {console.log(event)})
+        this.__remove = null;
+        this.isExpanding = false;
+        this.currentPage = 1;
+        this.maxPage = 1;
+        this.url = ""
+        this.updatePixelRatio();
+    }
+
+    clear() {
+        this.scene.clear()
+        this.albums = new Set();
+
+        this.initializeCamera();
+        this.initializeControls(this.canvas);
+
+        this.initializeLights();
+    }
+
+    initializeLights() {
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 3);
+        hemiLight.position.set(50, -36, 20)
+        this.scene.add(hemiLight);
+    }
+
+    loadBackground() {
+
+    }
+
+    initializeControls(canvas) {
+        this.controls = new MapControls(this.camera, this.renderer.domElement);
+
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+        this.controls.enableZoom = false;
+        this.controls.screenSpacePanning = true;
+        this.controls.panSpeed = 1.8
+    }
+
+    initializeCamera() {
+        this.camera = new THREE.PerspectiveCamera(FOV_ALBUMPICKER, 1, 0.1, 500);
+        this.camera.lookAt(0, ALBUM_WIDTH / 2, 0)
+        this.camera.position.setZ(130)
+        this.scene.add(this.camera)
+    }
+
+    loadFromJson(shelfJSON, url) {
+        this.clear()
+        this.isExpanding = false;
+        this.url = url
+        this.addFromJson(shelfJSON)
+    }
+
+    addFromJson(shelfJSON) {
+        this.currentPage = shelfJSON["page"]
+        this.maxPage = shelfJSON["max_page"]
+        const albumList = shelfJSON["album_list"]
+        for (let i = 0; i < albumList.length; i++) {
+            let album = new Playable(albumList[i]);
+
+            album.mesh.onclick = () => {
+                this.callbackAlbumClick(album.id)
+            }
+            album.mesh.position.x = (ALBUM_WIDTH * 4 / 5) * this.albums.size;
+            album.mesh.rotateX(-SHELF_ANGLE)
+            // album.mesh.position.y = - (ALBUM_WIDTH / 3);
+            this.albums.add(album);
+            this.scene.add(album.mesh);
+        }
+        this.finalizeScene()
+    }
+
+    finalizeScene() {
+        resizeRendererToDisplaySize(this.renderer)
+        this.camera.aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.render(this.scene, this.camera);
+        this.animate()
+    }
+
+    onClick(event) {
+        if (mouseDown[0] === event.clientX && mouseDown[1] === event.clientY) {
+            if (this.currentlyHoveredOver && this.currentlyHoveredOver.onclick !== undefined) this.currentlyHoveredOver.onclick(event);
+        }
+        mouseDown = [-1, -1]
+    }
+
+    onMove(event) {
+        const pointer = new THREE.Vector2();
+        pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+        pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        this.raycaster.setFromCamera(pointer, this.camera);
+
+        const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+        if (intersects.length > 0 && intersects[0].object.onclick !== undefined) {
+            document.body.style.cursor = 'pointer';
+            if (this.currentlyHoveredOver !== intersects[0].object) {
+
+                if (this.currentlyHoveredOver) this.currentlyHoveredOver.material.emissive.setHex(this.currentlyHoveredOver.userData.currentHex);
+
+                this.currentlyHoveredOver = intersects[0].object;
+                this.currentlyHoveredOver.userData.currentHex = this.currentlyHoveredOver.material.emissive.getHex();
+                this.currentlyHoveredOver.material.emissive.setHex(0x888888);
+            }
+
+        } else {
+            document.body.style.cursor = 'auto';
+            if (this.currentlyHoveredOver) this.currentlyHoveredOver.material.emissive.setHex(this.currentlyHoveredOver.userData.currentHex);
+            this.currentlyHoveredOver = null;
+        }
+    }
+
+    updateAlbums() {
+        this.albums.forEach((album) => {
+            const deltaZ = 18
+            let x = album.mesh.position.x - this.camera.position.x
+
+            album.mesh.position.setZ(
+                deltaZ * Math.pow(Math.E, -1.5 / ALBUM_WIDTH * (Math.abs(x)))
+            )
+
+            if (Math.abs(x) > ALBUM_WIDTH / 2) {
+                album.mesh.rotation.y = (-Math.sign(x) * Math.sin(Math.PI / 4) ** 2) * Math.PI / 2 * 1.3
+            } else {
+                album.mesh.rotation.y = (-Math.sign(x) * Math.sin(x * (Math.PI / 2) / ALBUM_WIDTH) ** 2) * Math.PI / 2 * 1.3
+            }
+
+        })
+    }
+
+    triggerExpand() {
+        this.isExpanding = true;
+
+        if (this.url !== "") {
+            this.loader?.on()
+            loadJSON(this.url + "&page=" + (this.currentPage + 1),
+                (data) => {
+                    this.addFromJson.bind(this)(data);
+                    this.loader?.off()
+                    if (this.currentPage <= this.maxPage) {
+                        this.isExpanding = false  // not yet at the end
+                    }
+                },);
+        }
+    }
+
+    animate() {
+        this.render();
+        this.controls.update();
+        this.controls.target.setY(0)
+        this.camera.position.setY(0);
+
+        const upper_limit = (ALBUM_WIDTH * 4 / 5) * (this.albums.size - 1);
+        const newX = Math.min(Math.max(this.camera.position.x, 0), upper_limit)
+        if (this.camera.position.x >= upper_limit - ALBUM_WIDTH && !this.isExpanding) {
+            this.triggerExpand()
+        }
+        this.controls.target.setX(newX)
+        this.camera.position.setX(newX);
+        this.updateAlbums()
+
+        requestAnimationFrame(this.animate.bind(this));
+    }
+
+    render() {
+        if (resizeRendererToDisplaySize(this.renderer)) {
+            console.log("needResize")
+            this.camera.aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+            this.camera.updateProjectionMatrix();
+        }
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    updatePixelRatio = () => {
+        if (this.__remove != null) {
+            this.__remove();
+        }
+        let mqString = `(resolution: ${window.devicePixelRatio}dppx)`;
+        let media = matchMedia(mqString);
+        media.addListener(this.updatePixelRatio);
+        this.__remove = function () {
+            media.removeListener(this.updatePixelRatio)
+        };
+
+        console.log("devicePixelRatio: " + window.devicePixelRatio);
+        console.log(window.devicePixelRatio)
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+    }
+
 }
+
+const button = document.getElementById("editButton")
+let el = document.getElementsByClassName("ShelfCanvas").item(0);
+let sr = new ShelfRenderer(el);
+loadJSON("/three_shelf_json/" + el.id.substring(11), (data) => {
+    sr.loadFromJson.bind(sr)(data);
+    button.addEventListener("click", sr.toggleEditMode.bind(sr))
+}, console.log);
+
+
+const editButton = document.getElementById("editButton")
+
+function generateAlbumPickerDOM() {
+    let pauseMask = document.createElement("div");
+    pauseMask.setAttribute("id", "pauseMask")
+    pauseMask.setAttribute("class", "pauseMask")
+
+    let albumPickerCanvas = document.createElement("canvas");
+    albumPickerCanvas.setAttribute("id", "AlbumPicker");
+    albumPickerCanvas.setAttribute("class", "AlbumPicker");
+
+    const searchBar = document.getElementById("searchBar")
+    searchBar.style.position = "absolute"
+
+    editButton.after(pauseMask)
+    pauseMask.after(albumPickerCanvas);
+    return albumPickerCanvas;
+}
+
+function disposeAlbumPickerDOM() {
+    let pauseMask = document.getElementById("pauseMask");
+    let albumPickerCanvas = document.getElementById("AlbumPicker");
+    const searchBar = document.getElementById("searchBar")
+    searchBar.style.position = ""
+
+    pauseMask.parentNode.removeChild(pauseMask)
+    albumPickerCanvas.parentNode.removeChild(albumPickerCanvas)
+}
+
+function openAlbumPicker(loaderAnimation, onClickCallback) {
+    let albumPickerCanvas = generateAlbumPickerDOM();
+
+    let ap = new AlbumPicker(albumPickerCanvas, loaderAnimation, onClickCallback);
+
+    const formEl = document.getElementById("searchQueryInput")
+    const formButton = document.getElementById("searchQuerySubmit")
+    const search = function () {
+        console.log("Submit: ", formEl.value);
+        loaderAnimation?.on()
+        const query = "/album/library?search_txt=" + formEl.value;
+        loadJSON(query, (data) => {
+            ap.loadFromJson.bind(ap)(data, query);
+            loaderAnimation?.off()
+        },);
+    }
+    formEl.onkeydown = (event) => {
+        if (event.code === "Enter") search()
+    }
+    formButton.onclick = (event) => {
+        search()
+    }
+
+    loadJSON("/album/library/", (data) => {
+        ap.loadFromJson.bind(ap)(data, "");
+    },);
+}
+
+// pickerButton.onclick = (evt) => {
+//     sr.togglePause();
+//     openAlbumPicker(loader, (id) => {
+//         console.log(id);
+//         disposeAlbumPickerDOM();
+//         sr.togglePause()
+//     });
+// }

@@ -1,62 +1,119 @@
 /* Container holding the image and the text */
 .container {
-  position: relative;
-  text-align: center;
-  color: white;
+    position: relative;
+    text-align: center;
+    color: white;
 }
 
 /* Bottom left text */
 .bottom-left {
-  position: absolute;
-  bottom: 8px;
-  left: 16px;
+    position: absolute;
+    bottom: 8px;
+    left: 16px;
 }
 
 /* Top left text */
 .top-left {
-  position: absolute;
-  top: 8px;
-  left: 16px;
+    position: absolute;
+    top: 8px;
+    left: 16px;
 }
 
 /* Top right text */
 .top-right {
-  position: absolute;
-  top: 8px;
-  right: 16px;
+    position: absolute;
+    top: 8px;
+    right: 16px;
 }
 
 /* Bottom right text */
 .bottom-right {
-  position: absolute;
-  bottom: 8px;
-  right: 16px;
+    position: absolute;
+    bottom: 8px;
+    right: 16px;
 }
 
 /* Centered text */
 .centered {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .ShelfCanvas {
-  width: 100vw;
-  height: 100vh;
-  display: block;
-  background: white;
-  position: absolute;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    background: white;
+    position: absolute;
 }
 
-.canvas-container{
-  position: relative;
-  width: 500px;
-  height: 500px;
+.AlbumPicker {
+    top: 75%;
+    width: 100vw;
+    height: 25vh;
+    display: block;
+    background: white;
+    position: absolute;
+}
+
+.canvas-container {
+    position: relative;
+    width: 500px;
+    height: 500px;
 }
 
 #editButton {
-  position:absolute;
-  left:10%;
-  top:10%
+    position: absolute;
+    left: 10%;
+    top: 10%
+}
+
+#pickerButton {
+    position: absolute;
+    left: 10%;
+    top: 20%
+}
+
+.pauseMask {
+    position: absolute;
+    background: gray;
+    opacity: 70%;
+    width: 100vw;
+    height: 100vh;
+}
+
+.searchBar {
+    top: 76%;
+    left: 1%;
+    /*position: absolute;*/
+    width: 25vw;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+#searchQueryInput {
+    width: 100%;
+    height: 2.8rem;
+    background: #f5f5f5;
+    outline: none;
+    border: none;
+    border-radius: 1.625rem;
+    padding: 0 3.5rem 0 1.5rem;
+    font-size: 1rem;
+}
+
+#searchQuerySubmit {
+    width: 3.5rem;
+    height: 2.8rem;
+    margin-left: -3.5rem;
+    background: none;
+    border: none;
+    outline: none;
+}
+
+#searchQuerySubmit:hover {
+    cursor: pointer;
 }

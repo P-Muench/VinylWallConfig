@@ -10,17 +10,19 @@ urlpatterns = [
     # # path('<int:pk>/', views.DetailView.as_view(), name='detail'),
     # # path('<int:pk>/results/', views.ResultsView.as_view(), name='results'),
     # path('activate/', views.activate, name='activate'),
-    path('three_shelf_json/<int:shelf_id>', views.three_shelf_json, name='three_shelf_json'),
-    path('three_shelf/<int:shelf_id>', views.three_shelf_view, name='three_shelf'),
+    path('shelf_json/<int:shelf_id>', views.shelf_json, name='shelf_json'),
+    path('shelf/<int:shelf_id>', views.shelf_view, name='shelf'),
+    path('active_shelf/', views.active_shelf_view, name='active_shelf'),
+    path('', views.active_shelf_view, name='root'),
     path('album/picker', views.album_picker, name='album_picker'),
     path('shelf/add/', views.add_shelfspot_json, name="add_shelfspot_json"),
     path('shelf/remove/', views.remove_shelfspot_json, name="add_shelfspot_json"),
     path('album/library/', views.playable_library, name="album_library"),
     path('shelfspot/set/', views.set_playable, name="set_playable"),
 
-    path('', views.active_shelf_view, name='root'),
-    path('shelf/<int:shelf_id>', views.shelf_view, name='shelf'),
-    path('active_shelf/', views.active_shelf_view, name='active_shelf'),
+
+    # path('shelf/<int:shelf_id>', views.shelf_view, name='shelf'),
+
     path('album_cover/<int:playable_id>', views.album_cover, name='album_cover'),
 
     path('devices/', views.devices, name='devices'),

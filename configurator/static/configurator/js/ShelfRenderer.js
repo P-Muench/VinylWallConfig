@@ -7,33 +7,27 @@ import {MapControls} from 'three/addons/controls/MapControls.js';
 
 const ALBUM_WIDTH = 30
 const ALBUM_DEPTH = 1
-const ALBUM_PADDING_HOR = ALBUM_WIDTH * .1
+const ALBUM_PADDING_HOR = ALBUM_WIDTH * .15
 const ALBUM_PADDING_VERT = ALBUM_WIDTH * .1
-const SHELF_HEIGHT = 2
+const SHELF_HEIGHT = 3
 const SHELF_DEPTH = 15;
 const SHELF_ANGLE = -3.14 / 12;
-const FOV = 54.4;
+const FOV = 54.4;  // 35mm
 const FOV_ALBUMPICKER = 20;
 
 const TEXTURE_CACHE = {};
 
 var mouseDown = [-1, -1];
 
-const loader = new ldloader({root: "#my-loader"});
-
-function loadJSON(path, success, error) {
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                success(JSON.parse(xhr.responseText));
-            } else {
-                error(xhr);
-            }
-        }
-    };
-    xhr.open('GET', path, true);
-    xhr.send();
+export function loadJSON(path, success, error) {
+    fetch(path, {
+            method: "GET"
+        })
+            .then((response) => response.json())
+            .then((json) => {
+                console.log(json);
+                success(json);
+            });
 }
 
 function resizeRendererToDisplaySize(renderer) {
@@ -47,13 +41,15 @@ function resizeRendererToDisplaySize(renderer) {
     return needResize;
 }
 
-class ShelfRenderer {
+export class ShelfRenderer {
 
-    constructor(canvas) {
+    constructor(canvas, onShelfspotClick=null) {
         this.canvas = canvas;
         this.raycaster = new THREE.Raycaster();
         this.currentlyHoveredOver = null;
         this.shelfJSON = {};
+
+        this.onShelfSpotClick = onShelfspotClick;
 
         this.isPaused = false;
 
@@ -316,7 +312,7 @@ class ShelfRenderer {
             ((maxY - minY) / 2) / tan(vert_fov / 2)) * 1.1;
         this.camera.position.x = (maxX + minX) / 2;
         this.camera.position.y = (maxY + minY) / 2;
-        this.camera.position.z = dist * 1.4;
+        this.camera.position.z = dist * 1.2;
         this.camera.userData.originalPosition = new THREE.Vector3().copy(this.camera.position)
         this.camera.lookAt(this.boundingSphere.center)
         // this.spotlight.shadow.camera.updateProjectionMatrix ()
@@ -328,17 +324,9 @@ class ShelfRenderer {
         for (let i = 0; i < shelfJSON["spot_matrix"].length; i++) {
             let shelfspot = new ShelfSpot(shelfJSON["spot_matrix"][i]);
 
-            shelfspot.setOnAlbumClick((() => {
-                this.togglePause();
-                openAlbumPicker(loader, (id) => {
-                    this.fetchAndReload("/shelfspot/set/", {
-                        "playable_id": id,
-                        "shelfspot_id": shelfspot.jsonData["id"]
-                    })
-                    disposeAlbumPickerDOM();
-                    this.togglePause()
-                });
-            }))
+            if (this.onShelfSpotClick !== null) {
+                shelfspot.setOnAlbumClick(this.onShelfSpotClick(shelfspot))
+            }
 
             this.shelfspots.add(shelfspot);
             this.scene.add(shelfspot);
@@ -472,9 +460,13 @@ class ShelfRenderer {
     }
 
     onMove(event) {
+        var rect = event.target.getBoundingClientRect();
+          var x = (event.clientX - rect.left) / this.canvas.clientWidth * 2 - 1; //x position within the element.
+          var y = - (event.clientY - rect.top) / this.canvas.clientHeight * 2 + 1;  //y position within the element.
+
         const pointer = new THREE.Vector2();
-        pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-        pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        pointer.x = x;
+        pointer.y = y;
         const originalPosition = this.camera.userData.originalPosition;
 
         const leeWay = 3
@@ -783,7 +775,7 @@ function makeShelf() {
     return shelfMesh;
 }
 
-class AlbumPicker {
+export class AlbumPicker {
 
     constructor(canvas, loader = null, callbackAlbumClick = (id) => {
     }) {
@@ -811,8 +803,6 @@ class AlbumPicker {
         })
         this.canvas.addEventListener('mouseup', this.onClick.bind(this))
 
-        // this.canvas.addEventListener('touch', this.onTouch.bind(this))
-        // window.addEventListener('scroll', (event) => {console.log(event)})
         this.__remove = null;
         this.isExpanding = false;
         this.currentPage = 1;
@@ -900,10 +890,16 @@ class AlbumPicker {
     }
 
     onMove(event) {
+                var rect = event.target.getBoundingClientRect();
+          var x = (event.clientX - rect.left) / this.canvas.clientWidth * 2 - 1; //x position within the element.
+          var y = - (event.clientY - rect.top) / this.canvas.clientHeight * 2 + 1;  //y position within the element.
+          // console.log("Left? : " + x + " ; Top? : " + y + ".");
+
         const pointer = new THREE.Vector2();
-        pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-        pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        pointer.x = x;
+        pointer.y = y;
         this.raycaster.setFromCamera(pointer, this.camera);
+        console.log(pointer)
 
         const intersects = this.raycaster.intersectObjects(this.scene.children, true);
         if (intersects.length > 0 && intersects[0].object.onclick !== undefined) {
@@ -1003,77 +999,3 @@ class AlbumPicker {
 
 }
 
-const button = document.getElementById("editButton")
-let el = document.getElementsByClassName("ShelfCanvas").item(0);
-let sr = new ShelfRenderer(el);
-loadJSON("/three_shelf_json/" + el.id.substring(11), (data) => {
-    sr.loadFromJson.bind(sr)(data);
-    button.addEventListener("click", sr.toggleEditMode.bind(sr))
-}, console.log);
-
-
-const editButton = document.getElementById("editButton")
-
-function generateAlbumPickerDOM() {
-    let pauseMask = document.createElement("div");
-    pauseMask.setAttribute("id", "pauseMask")
-    pauseMask.setAttribute("class", "pauseMask")
-
-    let albumPickerCanvas = document.createElement("canvas");
-    albumPickerCanvas.setAttribute("id", "AlbumPicker");
-    albumPickerCanvas.setAttribute("class", "AlbumPicker");
-
-    const searchBar = document.getElementById("searchBar")
-    searchBar.style.position = "absolute"
-
-    editButton.after(pauseMask)
-    pauseMask.after(albumPickerCanvas);
-    return albumPickerCanvas;
-}
-
-function disposeAlbumPickerDOM() {
-    let pauseMask = document.getElementById("pauseMask");
-    let albumPickerCanvas = document.getElementById("AlbumPicker");
-    const searchBar = document.getElementById("searchBar")
-    searchBar.style.position = ""
-
-    pauseMask.parentNode.removeChild(pauseMask)
-    albumPickerCanvas.parentNode.removeChild(albumPickerCanvas)
-}
-
-function openAlbumPicker(loaderAnimation, onClickCallback) {
-    let albumPickerCanvas = generateAlbumPickerDOM();
-
-    let ap = new AlbumPicker(albumPickerCanvas, loaderAnimation, onClickCallback);
-
-    const formEl = document.getElementById("searchQueryInput")
-    const formButton = document.getElementById("searchQuerySubmit")
-    const search = function () {
-        console.log("Submit: ", formEl.value);
-        loaderAnimation?.on()
-        const query = "/album/library?search_txt=" + formEl.value;
-        loadJSON(query, (data) => {
-            ap.loadFromJson.bind(ap)(data, query);
-            loaderAnimation?.off()
-        },);
-    }
-    formEl.onkeydown = (event) => {
-        if (event.code === "Enter") search()
-    }
-    formButton.onclick = (event) => {
-        search()
-    }
-
-    loadJSON("/album/library/", (data) => {
-        ap.loadFromJson.bind(ap)(data, "");
-    },);
-}
-
-// pickerButton.onclick = (evt) => {
-//     sr.togglePause();
-//     openAlbumPicker(loader, (id) => {
-//         console.log(id);
-//         disposeAlbumPickerDOM();
-//         sr.togglePause()
-//     });
-// }

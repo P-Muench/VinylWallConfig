@@ -28,14 +28,9 @@ def active_shelf_view(request):
     return render_shelf(request, shelf)
 
 
-def three_shelf_json(request, shelf_id):
+def shelf_json(request, shelf_id):
     shelf = get_object_or_404(Shelf, pk=shelf_id)
-    return render_shelf_three_json(request, shelf)
-
-
-def three_shelf_view(request, shelf_id):
-    shelf = get_object_or_404(Shelf, pk=shelf_id)
-    return render_shelf_three(request, shelf)
+    return render_shelf_json(request, shelf)
 
 def album_picker(request):
     return render(request, 'configurator/album_picker.html', {
@@ -108,20 +103,12 @@ def duplicate_shelf(request, shelf_id):
 
     return HttpResponseRedirect(reverse("configurator:shelf", args=(new_shelf.id,)))
 
-
 def render_shelf(request, shelf):
-    spot_list = shelf.shelfspot_set.all()
     return render(request, 'configurator/shelf.html', {
-        'spot_matrix': generate_spot_matrix(spot_list),
         'shelf': shelf
     })
 
-def render_shelf_three(request, shelf):
-    return render(request, 'configurator/three_shelf.html', {
-        'shelf': shelf
-    })
-
-def render_shelf_three_json(request, shelf):
+def render_shelf_json(request, shelf):
     spot_list = shelf.shelfspot_set.all()
     return JsonResponse({'shelf_id': shelf.id, 'spot_matrix': generate_json_spot_matrix(spot_list)})
 
@@ -203,7 +190,7 @@ def add_shelfspot_json(request):
         raise Exception("Shelf exists already")
     new_spot = ShelfSpot(row_index=row_id, col_index=col_id, shelf_id=shelf_id, playable_id=1)
     new_spot.save()
-    return HttpResponseRedirect(reverse("configurator:three_shelf_json", args=(shelf_id,)))
+    return HttpResponseRedirect(reverse("configurator:shelf_json", args=(shelf_id,)))
 
 def remove_shelfspot_json(request):
     try:
@@ -222,7 +209,7 @@ def remove_shelfspot_json(request):
         raise Exception("Shelf does not exist")
     shelf = get_object_or_404(ShelfSpot, shelf_id=shelf_id, row_index=row_id, col_index=col_id)
     shelf.delete()
-    return HttpResponseRedirect(reverse("configurator:three_shelf_json", args=(shelf_id,)))
+    return HttpResponseRedirect(reverse("configurator:shelf_json", args=(shelf_id,)))
 
 
 def remove_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
@@ -283,7 +270,6 @@ def set_playable(request):
             playable_id = json_body["playable_id"]
             shelfspot_id = json_body["shelfspot_id"]
 
-    print(shelfspot_id, playable_id)
     shelfspot = get_object_or_404(ShelfSpot, pk=shelfspot_id)
     playable = get_object_or_404(Playable, pk=playable_id)
 
@@ -294,7 +280,7 @@ def set_playable(request):
     playable.save()
 
 
-    return HttpResponseRedirect(reverse("configurator:three_shelf_json", args=(shelfspot.shelf_id,)))
+    return HttpResponseRedirect(reverse("configurator:shelf_json", args=(shelfspot.shelf_id,)))
 
 
 def remove_playable(request, shelfspot_id):

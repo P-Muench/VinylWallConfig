@@ -4,6 +4,7 @@ import re
 from typing import Literal
 
 import requests
+from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
@@ -361,3 +362,22 @@ def playable_library(request):
     return JsonResponse({'page': page,
                          'max_page': math.ceil(len(sorted_playables) / PAGE_LIMIT),
                          'album_list': [p.to_dict() for p in page_playables]})
+
+
+def pick_shelf(request):
+    PAGE_LIMIT = 4
+    page_txt = request.GET.get("page", "1")
+    try:
+        page = int(page_txt)
+        if page < 0:
+            raise ValueError
+    except:
+        page = 1
+
+    sorted_shelves = sorted(Shelf.objects.all(), key=lambda x: (x.active, x.updated_at), reverse=True)
+
+    paginator = Paginator(sorted_shelves, PAGE_LIMIT)
+
+    return render(request, 'configurator/shelfPicker.html', {
+        'page_obj': paginator.page(page),
+    })

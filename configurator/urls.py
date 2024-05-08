@@ -20,10 +20,10 @@ urlpatterns = [
     path('album/library/', views.playable_library, name="album_library"),
     path('shelfspot/set/', views.set_playable, name="set_playable"),
 
-
+    path('shelfpicker', views.pick_shelf, name="pick_shelf"),
     # path('shelf/<int:shelf_id>', views.shelf_view, name='shelf'),
 
-    path('album_cover/<int:playable_id>', views.album_cover, name='album_cover'),
+    # path('album_cover/<int:playable_id>', views.album_cover, name='album_cover'),
 
     path('devices/', views.devices, name='devices'),
     path('devices/activate', views.activate_device, name='activate_device'),

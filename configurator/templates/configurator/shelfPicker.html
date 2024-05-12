@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>My first three.js app</title>
+    <title>VinylWallConfig - ShelfPicker</title>
     <style>
         body {
             margin: 0;
@@ -24,31 +24,30 @@
 <script type="module" src="{% static 'configurator/js/ShelfRenderer.js' %}"></script>
 <script type="module" src="{% static 'configurator/js/multiShelfInit.js' %}"></script>
 <link rel="stylesheet" href="{% static 'configurator/style.css' %}">
-
-{#<script type="module" src="{% static 'configurator/js/AlbumPicker.js' %}"></script>#}
 <script src="{% static 'configurator/js/ldld.js' %}"></script>
 <link rel="stylesheet" type="text/css" href="{% static 'configurator/ldld.css' %}"/>
-{#<link rel="stylesheet" type="text/css" href="{% static 'configurator/sidebar.css' %}"/>#}
-
 <body>
 <div class="container-fluid min-vh-100 d-flex flex-column">
     <div class="row">
-        <header class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
-            <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="/active_shelf">VinylWallConfig</a>
-            <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse"
-                    data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false"
-                    aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="navbar-nav">
-                <div class="nav-item text-nowrap">
-                    <a class="nav-link px-3" href="#">Settings</a>
-                </div>
-            </div>
-        </header>
+         <nav class="navbar navbar-expand-sm fixed-top bg-light p-0 shadow">
+            <a class="navbar-brand" href="/active_shelf/">VinylWallConfig</a>
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item active">
+                    <a class="nav-link" href="/active_shelf/">SHELF <span class="sr-only"></span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link disabled" href="#">Collection</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/devices/">Devices</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link disabled" href="#">Albums</a>
+                </li>
+            </ul>
+        </nav>
     </div>
-
+    <div class="row"> <br></div>
     <div class="row row-cols-1 row-cols-md-2 flex-grow-1 g-4 p-3">
         {% for shelf in page_obj %}
             <div class="col-6">

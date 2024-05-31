@@ -21,13 +21,13 @@ var mouseDown = [-1, -1];
 
 export function loadJSON(path, success, error) {
     fetch(path, {
-            method: "GET"
-        })
-            .then((response) => response.json())
-            .then((json) => {
-                console.log(json);
-                success(json);
-            });
+        method: "GET"
+    })
+        .then((response) => response.json())
+        .then((json) => {
+            console.log(json);
+            success(json);
+        });
 }
 
 function resizeRendererToDisplaySize(renderer) {
@@ -43,7 +43,7 @@ function resizeRendererToDisplaySize(renderer) {
 
 export class ShelfRenderer {
 
-    constructor(canvas, onShelfspotClick=null) {
+    constructor(canvas, onShelfspotClick = null) {
         this.canvas = canvas;
         this.raycaster = new THREE.Raycaster();
         this.currentlyHoveredOver = null;
@@ -461,8 +461,8 @@ export class ShelfRenderer {
 
     onMove(event) {
         var rect = event.target.getBoundingClientRect();
-          var x = (event.clientX - rect.left) / this.canvas.clientWidth * 2 - 1; //x position within the element.
-          var y = - (event.clientY - rect.top) / this.canvas.clientHeight * 2 + 1;  //y position within the element.
+        var x = (event.clientX - rect.left) / this.canvas.clientWidth * 2 - 1; //x position within the element.
+        var y = -(event.clientY - rect.top) / this.canvas.clientHeight * 2 + 1;  //y position within the element.
 
         const pointer = new THREE.Vector2();
         pointer.x = x;
@@ -503,7 +503,8 @@ export class ShelfRenderer {
         }
     }
 
-    fetchAndReload(url, data, postF = () => {}) {
+    fetchAndReload(url, data, postF = () => {
+    }) {
         fetch(url, {
             method: "POST",
             body: JSON.stringify(data),
@@ -635,17 +636,38 @@ class ShelfSpot extends THREE.Group {
         }
 
         let shelfMesh
+        let shelfButton
         if (drawShelf) {
             shelfMesh = makeShelf();
-
+            shelfButton = new ShelfButton((this.jsonData["associated_key"] !== null) - 1)
             const shelfX = albumX;
             const shelfY = albumY - (Math.cos(SHELF_ANGLE) * ALBUM_WIDTH / 2 + SHELF_HEIGHT / 2);
             const shelfZ = (SHELF_DEPTH / 2)
             shelfMesh.position.set(shelfX, shelfY, shelfZ)
+
+            shelfButton.position.set(shelfX, shelfY, shelfZ * 2)
+            shelfButton.rotateX(-Math.PI / 2)
+
+            if (this.jsonData["associated_key"] !== null) {
+                const f = function loadJSON(path, success, error) {
+                    fetch("/handle_button/", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            // 'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: JSON.stringify({"key": this.jsonData["associated_key"]}),
+                    });
+                }.bind(this);
+                shelfButton.buttonMesh.onclick = f;
+            }
+
+
         }
 
         if (drawShelf) {
             this.add(shelfMesh)
+            this.add(shelfButton)
             this.shelfMesh = shelfMesh;
         }
         if (drawAlbum) {
@@ -720,6 +742,57 @@ class Playable {
         }
 
         this.mesh = albumMesh;
+    }
+}
+
+class ShelfButton extends THREE.Group {
+
+    constructor(state = 0) {
+        super();
+        this.state = state
+        this.buttonMesh = new THREE.Mesh();
+        this.buttonSocketMesh = new THREE.Mesh()
+        this.#init()
+    }
+
+    #stateColor() {
+        if (this.state === 0) {
+            return new THREE.Color(.1, .3, .1)
+        }
+        if (this.state < 0) {
+            return new THREE.Color(.8, 0, 0)
+        }
+        if (this.state > 0) {
+            return new THREE.Color(0, .9, 0)
+        }
+    }
+
+    #init() {
+        const buttonRadius = SHELF_HEIGHT * 0.9 / 2;
+        const buttonGeometry = new THREE.CylinderGeometry(buttonRadius, buttonRadius, .5, 30)
+        const buttonMaterial = new THREE.MeshStandardMaterial({
+            color: this.#stateColor(),
+            roughness: 0.5,
+            metalness: 0.3,
+            //emissive: this.#stateColor(),
+            //flatShading: true
+        });
+        this.buttonMesh = new THREE.Mesh(buttonGeometry, buttonMaterial)
+        this.buttonMesh.castShadow = true;
+
+        const buttonSocketGeometry = new THREE.CylinderGeometry(buttonRadius * 1.1, buttonRadius * 1.1, .1, 30)
+        const buttonSocketMaterial = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(0.8, 0.8, 0.8),
+            roughness: 0.5,
+            metalness: .7,
+            //emissive: this.#stateColor(),
+            flatShading: true
+        });
+        this.buttonSocketMesh = new THREE.Mesh(buttonSocketGeometry, buttonSocketMaterial)
+        this.buttonSocketMesh.castShadow = true;
+
+        this.add(this.buttonSocketMesh)
+        this.add(this.buttonMesh)
     }
 }
 
@@ -890,10 +963,10 @@ export class AlbumPicker {
     }
 
     onMove(event) {
-                var rect = event.target.getBoundingClientRect();
-          var x = (event.clientX - rect.left) / this.canvas.clientWidth * 2 - 1; //x position within the element.
-          var y = - (event.clientY - rect.top) / this.canvas.clientHeight * 2 + 1;  //y position within the element.
-          // console.log("Left? : " + x + " ; Top? : " + y + ".");
+        var rect = event.target.getBoundingClientRect();
+        var x = (event.clientX - rect.left) / this.canvas.clientWidth * 2 - 1; //x position within the element.
+        var y = -(event.clientY - rect.top) / this.canvas.clientHeight * 2 + 1;  //y position within the element.
+        // console.log("Left? : " + x + " ; Top? : " + y + ".");
 
         const pointer = new THREE.Vector2();
         pointer.x = x;

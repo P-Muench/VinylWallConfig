@@ -289,9 +289,11 @@ class ShelfSpot(models.Model):
     playable = models.ForeignKey(Playable, on_delete=models.DO_NOTHING, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    associated_key = models.IntegerField(null=True)
 
     def __str__(self):
         return f"Spot ({self.col_index}, {self.row_index}) [{self.playable.name[:20]}]"
 
     def to_dict(self):
-        return {"id": self.id, "row": self.row_index, "col": self.col_index, "playable": self.playable.to_dict()}
+        return {"id": self.id, "row": self.row_index, "col": self.col_index, "playable": self.playable.to_dict(),
+                "associated_key": self.associated_key}

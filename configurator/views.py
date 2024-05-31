@@ -1,6 +1,7 @@
 import json
 import math
 import re
+from pprint import pprint
 from typing import Literal
 
 import requests
@@ -8,6 +9,7 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 
 from VinylWallConfig.settings import MUSIC_DAEMON_PATH
 from configurator.models import Playable, ShelfSpot, Shelf, Album, Playlist, Device
@@ -40,7 +42,6 @@ def album_picker(request):
 
 
 def devices(request):
-    print(request.POST)
     do_reload = request.POST.get("reload", None)
     if do_reload is not None:
         add_devices_from_demon()
@@ -280,7 +281,6 @@ def set_playable(request):
     shelfspot.save()
     playable.save()
 
-
     return HttpResponseRedirect(reverse("configurator:shelf_json", args=(shelfspot.shelf_id,)))
 
 
@@ -310,27 +310,6 @@ def add_devices_from_demon():
         if query.count() == 0:
             Device.from_json(device, save=True)
 
-
-def playable_selection(request, shelfspot_id):
-    search_txt = request.POST.get("search_txt", "")
-    if search_txt == "":
-        relevant_playables = set(Playable.objects.all())
-    else:
-        add_albums_from_daemon(search_txt)
-        relevant_playables = Playable.objects.filter(name__icontains=search_txt)
-        relevant_playables = (set(relevant_playables)
-                              .union(set(Album.objects.filter(artist__icontains=search_txt)))
-                              .union(set(Playlist.objects.filter(owner__icontains=search_txt)))
-                              .union(set(Playlist.objects.filter(description__icontains=search_txt))))
-
-    playables_in_lib = {p for p in relevant_playables if p.id != 1 and p.in_library}
-    playables_not_in_lib = {p for p in relevant_playables if p.id != 1 and not p.in_library}
-    return render(request, 'configurator/shelfspot_select.html', {
-        'shelfspot': get_object_or_404(ShelfSpot, pk=shelfspot_id),
-        'search_txt': search_txt,
-        "playables_in_lib": sorted(playables_in_lib, key=lambda x: x.created_at),
-        "playables_not_in_lib": sorted(playables_not_in_lib, key=lambda x: x.created_at),
-    })
 
 def playable_library(request):
     PAGE_LIMIT = 20
@@ -381,3 +360,26 @@ def pick_shelf(request):
     return render(request, 'configurator/shelfPicker.html', {
         'page_obj': paginator.page(page),
     })
+
+@csrf_exempt
+def handle_button(request):
+    pprint(request.POST)
+    pprint(request.body)
+    try:
+        sent_key = request.POST["key"]
+    except KeyError as e:
+        if request.content_type == "application/json":
+            json_body = json.loads(request.body.decode("utf-8"))
+            pprint(json_body)
+            sent_key = json_body["key"]
+    if sent_key is not None:
+        active_device = list(Device.objects.filter(active=True))[0]
+        active_shelfpots = ShelfSpot.objects.filter(shelf__active=True)
+        selected_shelfspot: ShelfSpot = list(active_shelfpots.filter(associated_key=sent_key))[0]
+        selected_playable: Playable = get_object_or_404(Playable, pk=selected_shelfspot.playable_id)
+        post_data = {"device": active_device.device_id, "playable_uri": selected_playable.uri}
+        pprint(post_data)
+        requests.post(MUSIC_DAEMON_PATH + "/play",
+                      data=json.dumps(post_data),
+                      headers={'Content-Type': 'application/json'})
+        return JsonResponse({'selected_playable': selected_playable.uri, "device": active_device.device_id})

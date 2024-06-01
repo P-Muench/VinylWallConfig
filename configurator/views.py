@@ -2,7 +2,6 @@ import json
 import math
 import re
 from pprint import pprint
-from typing import Literal
 
 import requests
 from django.core.paginator import Paginator
@@ -12,10 +11,9 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
 from VinylWallConfig.settings import MUSIC_DAEMON_PATH
-from configurator.models import Playable, ShelfSpot, Shelf, Album, Playlist, Device
+from configurator.models import Playable, ShelfSpot, Shelf, Album, Playlist, Device, VWCSetting
 
 
-# Create your views here.
 def album_cover(request, playable_id):
     playable = get_object_or_404(Playable, pk=playable_id)
     return HttpResponse(playable.image, content_type='image/jpeg')
@@ -34,6 +32,7 @@ def active_shelf_view(request):
 def shelf_json(request, shelf_id):
     shelf = get_object_or_404(Shelf, pk=shelf_id)
     return render_shelf_json(request, shelf)
+
 
 def album_picker(request):
     return render(request, 'configurator/album_picker.html', {
@@ -105,77 +104,26 @@ def duplicate_shelf(request, shelf_id):
 
     return HttpResponseRedirect(reverse("configurator:shelf", args=(new_shelf.id,)))
 
+
 def render_shelf(request, shelf):
     return render(request, 'configurator/shelf.html', {
         'shelf': shelf
     })
 
+
 def render_shelf_json(request, shelf):
     spot_list = shelf.shelfspot_set.all()
-    return JsonResponse({'shelf_id': shelf.id, 'spot_matrix': generate_json_spot_matrix(spot_list)})
+    return JsonResponse({'shelf_id': shelf.id, 'spot_matrix': generate_spot_matrix(spot_list)})
 
 
-def generate_json_spot_matrix(spot_list):
+def generate_spot_matrix(spot_list):
     spot_matrix = []
     for s in spot_list:
         spot_matrix.append(s.to_dict())
     return spot_matrix
 
 
-def generate_spot_matrix(spot_list):
-    if not spot_list:
-        return {}
-    min_row = min(s.row_index for s in spot_list)
-    min_col = min(s.col_index for s in spot_list)
-    spot_matrix = {row_idx:
-                       {col_idx: None for col_idx in range(min_col, max(s.col_index for s in spot_list) + 1)}
-                   for row_idx in range(min_row, max(s.row_index for s in spot_list) + 1)}
-    for s in spot_list:
-        spot_matrix[s.row_index][s.col_index] = s
-    return spot_matrix
-
-
-def add_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
-    valid_dirs = ["left", "right", "top", "bottom"]
-    if direction not in valid_dirs:
-        raise LookupError(f"Direction {direction} not valid. Only {valid_dirs}")
-
-    def add_spot(request, shelf_id, row_col_id):
-        shelf = get_object_or_404(Shelf, pk=shelf_id)
-
-        spot_list = shelf.shelfspot_set.all()
-
-        cols = {spot.col_index for spot in spot_list if spot.row_index == row_col_id}
-        rows = {spot.row_index for spot in spot_list if spot.col_index == row_col_id}
-
-        if (direction in ["left", "right"] and len(cols) == 0) or (direction in ["top", "bottom"] and len(rows) == 0):
-            return render(
-                request,
-                reverse("configurator:shelf", args=(shelf_id,)),
-                {
-                    "shelf": shelf,
-                    'spot_matrix': generate_spot_matrix(spot_list),
-                    "error_message": f"There is no {('row' if direction in ['left', 'right'] else 'column')} with index {row_col_id}.",
-                },
-            )
-        new_spot = None
-        if direction == "right":
-            new_spot = ShelfSpot(row_index=row_col_id, col_index=max(cols) + 1, shelf_id=shelf_id, playable_id=1)
-        if direction == "left":
-            new_spot = ShelfSpot(row_index=row_col_id, col_index=min(cols) - 1, shelf_id=shelf_id, playable_id=1)
-        if direction == "top":
-            new_spot = ShelfSpot(row_index=min(rows) - 1, col_index=row_col_id, shelf_id=shelf_id, playable_id=1)
-        if direction == "bottom":
-            new_spot = ShelfSpot(row_index=max(rows) + 1, col_index=row_col_id, shelf_id=shelf_id, playable_id=1)
-        new_spot.save()
-        # Always return an HttpResponseRedirect after successfully dealing
-        # with POST data. This prevents data from being posted twice if a
-        # user hits the Back button.
-        return HttpResponseRedirect(reverse("configurator:shelf", args=(shelf_id,)))
-
-    return add_spot
-
-def add_shelfspot_json(request):
+def add_shelfspot(request):
     try:
         row_id = request.POST["row_id"]
         shelf_id = request.POST["shelf_id"]
@@ -194,7 +142,8 @@ def add_shelfspot_json(request):
     new_spot.save()
     return HttpResponseRedirect(reverse("configurator:shelf_json", args=(shelf_id,)))
 
-def remove_shelfspot_json(request):
+
+def remove_shelfspot(request):
     try:
         row_id = request.POST["row_id"]
         shelf_id = request.POST["shelf_id"]
@@ -212,54 +161,6 @@ def remove_shelfspot_json(request):
     shelf = get_object_or_404(ShelfSpot, shelf_id=shelf_id, row_index=row_id, col_index=col_id)
     shelf.delete()
     return HttpResponseRedirect(reverse("configurator:shelf_json", args=(shelf_id,)))
-
-
-def remove_shelfspot(direction: Literal["left", "right", "top", "bottom"]):
-    """
-    Remove a shelf spot from a given direction.
-
-    :param direction: The direction from which to remove the shelf spot. Must be one of "left", "right", "top", or "bottom".
-    :return: The remove_spot function.
-    """
-    valid_dirs = ["left", "right", "top", "bottom"]
-    if direction not in valid_dirs:
-        raise LookupError(f"Direction {direction} not valid. Only {valid_dirs}")
-
-    def remove_spot(request, shelf_id, row_col_id):
-        shelf = get_object_or_404(Shelf, pk=shelf_id)
-
-        spot_list = shelf.shelfspot_set.all()
-
-        cols = {spot.col_index for spot in spot_list if spot.row_index == row_col_id}
-        rows = {spot.row_index for spot in spot_list if spot.col_index == row_col_id}
-
-        if (direction in ["left", "right"] and len(cols) == 0) or (direction in ["top", "bottom"] and len(rows) == 0):
-            return render(
-                request,
-                reverse("configurator:shelf", args=(shelf_id,)),
-                {
-                    "shelf": shelf,
-                    'spot_matrix': generate_spot_matrix(spot_list),
-                    "error_message": f"There is no {('row' if direction in ['left', 'right'] else 'column')} with index {row_col_id}.",
-                },
-            )
-
-        new_spot = None
-        if direction == "right":
-            new_spot = get_object_or_404(ShelfSpot, shelf_id=shelf_id, row_index=row_col_id, col_index=max(cols))
-        if direction == "left":
-            new_spot = get_object_or_404(ShelfSpot, shelf_id=shelf_id, row_index=row_col_id, col_index=min(cols))
-        if direction == "top":
-            new_spot = get_object_or_404(ShelfSpot, shelf_id=shelf_id, row_index=min(rows), col_index=row_col_id)
-        if direction == "bottom":
-            new_spot = get_object_or_404(ShelfSpot, shelf_id=shelf_id, row_index=max(rows), col_index=row_col_id)
-        new_spot.delete()
-        # Always return an HttpResponseRedirect after successfully dealing
-        # with POST data. This prevents data from being posted twice if a
-        # user hits the Back button.
-        return HttpResponseRedirect(reverse("configurator:shelf", args=(shelf_id,)))
-
-    return remove_spot
 
 
 def set_playable(request):
@@ -334,7 +235,8 @@ def playable_library(request):
                               .union(set(Playlist.objects.filter(owner__icontains=search_txt)))
                               .union(set(Playlist.objects.filter(description__icontains=search_txt))))
 
-        sorted_playables = sorted([p for p in relevant_playables if p.id != 1], key=lambda x: (1 - x.in_library, x.created_at))
+        sorted_playables = sorted([p for p in relevant_playables if p.id != 1],
+                                  key=lambda x: (1 - x.in_library, x.created_at))
         # playables_in_lib = {p for p in relevant_playables if p.id != 1 and p.in_library}
         # playables_not_in_lib = {p for p in relevant_playables if p.id != 1 and not p.in_library}
     page_playables: list[Playable] = sorted_playables[(page - 1) * PAGE_LIMIT:page * PAGE_LIMIT]
@@ -361,25 +263,50 @@ def pick_shelf(request):
         'page_obj': paginator.page(page),
     })
 
+
 @csrf_exempt
 def handle_button(request):
     pprint(request.POST)
     pprint(request.body)
+    sent_key = None
     try:
         sent_key = request.POST["key"]
     except KeyError as e:
         if request.content_type == "application/json":
             json_body = json.loads(request.body.decode("utf-8"))
             pprint(json_body)
-            sent_key = json_body["key"]
+            sent_key = int(json_body["key"])
     if sent_key is not None:
-        active_device = list(Device.objects.filter(active=True))[0]
-        active_shelfpots = ShelfSpot.objects.filter(shelf__active=True)
-        selected_shelfspot: ShelfSpot = list(active_shelfpots.filter(associated_key=sent_key))[0]
-        selected_playable: Playable = get_object_or_404(Playable, pk=selected_shelfspot.playable_id)
-        post_data = {"device": active_device.device_id, "playable_uri": selected_playable.uri}
-        pprint(post_data)
-        requests.post(MUSIC_DAEMON_PATH + "/play",
-                      data=json.dumps(post_data),
-                      headers={'Content-Type': 'application/json'})
-        return JsonResponse({'selected_playable': selected_playable.uri, "device": active_device.device_id})
+        if VWCSetting.get_listening_shelfspot() is None:
+            return play_from_key(sent_key)
+        else:
+            return assign_from_key(sent_key)
+
+
+def assign_from_key(sent_key: int):
+    selected_shelfspot = get_object_or_404(ShelfSpot, pk=VWCSetting.get_listening_shelfspot())
+    former_shelfspots_for_key = selected_shelfspot.shelf.shelfspot_set.filter(associated_key=sent_key)
+    for shelfspot in former_shelfspots_for_key:
+        shelfspot.associated_key = None
+    selected_shelfspot.associated_key = sent_key
+
+    for shelfspot in former_shelfspots_for_key:
+        shelfspot.save()
+    selected_shelfspot.save()
+
+    VWCSetting.reset_listening_shelfspot()
+    return JsonResponse({'selected_playable': selected_shelfspot.playable.to_dict(),
+                         "key": sent_key})
+
+
+def play_from_key(sent_key):
+    active_device = get_object_or_404(Device, active=True)
+    active_shelfpots = ShelfSpot.objects.filter(shelf__active=True)
+    selected_shelfspot: ShelfSpot = get_object_or_404(active_shelfpots, associated_key=sent_key)
+    selected_playable: Playable = get_object_or_404(Playable, pk=selected_shelfspot.playable_id)
+    post_data = {"device": active_device.device_id, "playable_uri": selected_playable.uri}
+    pprint(post_data)
+    requests.post(MUSIC_DAEMON_PATH + "/play",
+                  data=json.dumps(post_data),
+                  headers={'Content-Type': 'application/json'})
+    return JsonResponse({'selected_playable': selected_playable.uri, "device": active_device.device_id})

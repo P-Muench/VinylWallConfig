@@ -3,6 +3,7 @@ import json
 
 import requests
 from django.db import models
+from django.db.models import CheckConstraint, Q, F
 
 
 # Create your models here.
@@ -229,7 +230,7 @@ class Album(Playable):
                       release_date=json_dict["release_date"],
                       artist=artist,
                       image_url=largest_img_url
-                )
+                      )
         if save:
             album.save()
         return album
@@ -297,3 +298,37 @@ class ShelfSpot(models.Model):
     def to_dict(self):
         return {"id": self.id, "row": self.row_index, "col": self.col_index, "playable": self.playable.to_dict(),
                 "associated_key": self.associated_key}
+
+
+class VWCSetting(models.Model):
+    setting_name = models.CharField(max_length=128)
+    value_str = models.CharField(max_length=1024, null=True, unique=True)
+    value_int = models.IntegerField(null=True)
+    value_float = models.FloatField(null=True)
+
+    class Meta:
+        constraints = [
+            CheckConstraint(
+                check=~(Q(value_str__isnull=False) & Q(value_int__isnull=False)) |
+                      ~(Q(value_str__isnull=False) & Q(value_float__isnull=False)) |
+                      ~(Q(value_float__isnull=False) & Q(value_int__isnull=False)),
+                name='check_values',
+            ),
+        ]
+
+    @staticmethod
+    def get_listening_shelfspot() -> int | None:
+        vs = VWCSetting.objects.filter(setting_name="listening_shelfspot").all()
+        v = vs[0]
+        return v.value_int
+
+    @staticmethod
+    def set_listening_shelfspot(val):
+        vs = VWCSetting.objects.filter(setting_name="listening_shelfspot").all()
+        v = vs[0]
+        v.value_int = val
+        v.save()
+
+    @staticmethod
+    def reset_listening_shelfspot():
+        VWCSetting.set_listening_shelfspot(None)

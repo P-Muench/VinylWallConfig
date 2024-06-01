@@ -19,6 +19,17 @@ const TEXTURE_CACHE = {};
 
 var mouseDown = [-1, -1];
 
+let configMessageBox = null;
+try {
+    configMessageBox = bootstrap.Modal.getOrCreateInstance('#myModal');
+} catch (e) {}
+
+function setMessageBoxText(text) {
+    const textEl = document.getElementById("myModalText");
+        console.log(textEl)
+    textEl.innerHTML = text
+}
+
 export function loadJSON(path, success, error) {
     fetch(path, {
         method: "GET"
@@ -56,10 +67,7 @@ export class ShelfRenderer {
         this.renderer = new THREE.WebGLRenderer({canvas: this.canvas, antialias: true});
         this.renderer.setClearColor(0xffffff);
         this.renderer.setPixelRatio(window.devicePixelRatio);
-        // this.renderer.format = THREE.RGBAFormat
-        // this.renderer.outputEncoding = THREE.sRGBEncoding
         this.renderer.physicallyCorrectLights = true
-        // this.renderer.toneMappingExposure = 1.1
 
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
@@ -83,6 +91,7 @@ export class ShelfRenderer {
 
         this.shelfspots = new Set();
         this.temporaryShelfs = new Set();
+        this.configureSocket = null;
 
         this.viewableGeometries = new THREE.Group();
         this.scene.add(this.viewableGeometries)
@@ -100,46 +109,16 @@ export class ShelfRenderer {
         hemiLight.position.set(50, -36, 20)
         this.scene.add(hemiLight);
 
-        // const hemiLightHelper = new THREE.HemisphereLightHelper(hemiLight, 10);
-        // this.scene.add(hemiLightHelper);
-
-        // const light = new THREE.DirectionalLight(0xfff5f6, 1.2);
-        // light.castShadow = true
-        // light.position.set(50, 20, 60);
-        // light.target.position.set(50, -40, 0)
-        // light.shadow.mapSize.width = 512; // default
-        // light.shadow.mapSize.height = 512; // default
-        // light.shadow.camera.near = 0.5; // default
-        // light.shadow.camera.far = 1000; // default
-        // light.shadow.camera.left=-100;
-        // light.shadow.camera.right=100;
-        // light.shadow.camera.top=100;
-        // light.shadow.camera.bottom=-100;
-
         const light = new THREE.PointLight(0xfff5f6, 2, 1000, 0);
-        // THREE.Color()
-        // light.color.a
         light.castShadow = true
         light.position.set(20, 50, 200);
-        // light.target.position.set(50, -40, 0)
         light.shadow.mapSize.width = 1024 * 4; // default
         light.shadow.mapSize.height = 1024 * 4; // default
         light.shadow.camera.near = 0.5; // default
         light.shadow.camera.far = 1000; // default
-        // console.log(light.shadow.camera.fov)
-        // light.shadow.camera.fov = 45
-        // light.shadow.camera.left=-100;
-        // light.shadow.camera.right=100;
-        // light.shadow.camera.top=100;
-        // light.shadow.camera.bottom=-100;
         this.spotlight = light;
         this.scene.add(light);
 
-        // const helper = new THREE.CameraHelper( light.shadow.camera );
-        // this.scene.add( helper );
-        //
-        // const lightHelper = new THREE.PointLightHelper(light, 10, 0xff0000);
-        // this.scene.add(lightHelper)
     }
 
     loadBackground() {
@@ -320,12 +299,30 @@ export class ShelfRenderer {
 
     loadFromJson(shelfJSON) {
         this.clear()
-        this.shelfJSON = shelfJSON
+        this.shelfJSON = shelfJSON;
+        const shelfSpotDict = {}
+        this.configureSocket = new WebSocket(
+            'ws://'
+            + window.location.host
+            + '/ws/configure/'
+            + shelfJSON["shelf_id"]
+            + '/'
+        );
         for (let i = 0; i < shelfJSON["spot_matrix"].length; i++) {
             let shelfspot = new ShelfSpot(shelfJSON["spot_matrix"][i]);
 
             if (this.onShelfSpotClick !== null) {
-                shelfspot.setOnAlbumClick(this.onShelfSpotClick(shelfspot))
+                shelfspot.setOnAlbumClick(this.onShelfSpotClick(shelfspot));
+
+                const f = function clickButton() {
+                    this.configureSocket.send(JSON.stringify({
+                        'shelfspot_id': shelfspot.jsonData["id"]
+                    }));
+                    shelfspot.shelfButtonMesh.setState(0);
+                    configMessageBox?.show();
+                }.bind(this);
+                shelfspot.setOnButtonClick(f);
+                shelfSpotDict[shelfspot.jsonData["id"]] = shelfspot;
             }
 
             this.shelfspots.add(shelfspot);
@@ -333,7 +330,23 @@ export class ShelfRenderer {
             this.addViewableGroup(shelfspot);
         }
         // this.addDebugGUI();
-        this.finalizeScene()
+        this.finalizeScene();
+
+        this.configureSocket.onmessage = function (e) {
+            const data = JSON.parse(e.data);
+            console.log(data);
+            setMessageBoxText(data.message)
+            for (var shelfspot_id in data.states) {
+                shelfSpotDict[shelfspot_id].shelfButtonMesh.setState(data.states[shelfspot_id]);
+            }
+            if (data.last_message)
+                configMessageBox?.hide()
+
+        };
+
+        this.configureSocket.onclose = function (e) {
+            console.error('Chat socket closed unexpectedly');
+        };
     }
 
     addDebugGUI() {
@@ -382,6 +395,7 @@ export class ShelfRenderer {
 
                         shelfspot.shelfMesh.material.transparent = true;
                         shelfspot.shelfMesh.material.opacity = .6;
+                        shelfspot.shelfButtonMesh.visible = false;
 
                         this.temporaryShelfs.add(shelfspot);
                         this.scene.add(shelfspot);
@@ -595,6 +609,7 @@ class ShelfSpot extends THREE.Group {
         this.jsonData = jsonData
         this.album = new Playable({});
         this.shelfMesh = new THREE.Mesh();
+        this.shelfButtonMesh = new ShelfButton(-1);
         this.#init(drawAlbum, drawShelf)
     }
 
@@ -612,6 +627,14 @@ class ShelfSpot extends THREE.Group {
 
     setOnShelfClick(f) {
         this.shelfMesh.onclick = f
+    }
+
+    setOnButtonClick(f) {
+        this.shelfButtonMesh.buttonMesh.onclick = f
+    }
+
+    removeOnButtonClick() {
+        this.shelfButtonMesh.buttonMesh.onclick = undefined
     }
 
     removeOnShelfClick() {
@@ -639,7 +662,7 @@ class ShelfSpot extends THREE.Group {
         let shelfButton
         if (drawShelf) {
             shelfMesh = makeShelf();
-            shelfButton = new ShelfButton((this.jsonData["associated_key"] !== null) - 1)
+            shelfButton = new ShelfButton(1 - (this.jsonData["associated_key"] === null) * 2)
             const shelfX = albumX;
             const shelfY = albumY - (Math.cos(SHELF_ANGLE) * ALBUM_WIDTH / 2 + SHELF_HEIGHT / 2);
             const shelfZ = (SHELF_DEPTH / 2)
@@ -647,27 +670,12 @@ class ShelfSpot extends THREE.Group {
 
             shelfButton.position.set(shelfX, shelfY, shelfZ * 2)
             shelfButton.rotateX(-Math.PI / 2)
-
-            if (this.jsonData["associated_key"] !== null) {
-                const f = function loadJSON(path, success, error) {
-                    fetch("/handle_button/", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            // 'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: JSON.stringify({"key": this.jsonData["associated_key"]}),
-                    });
-                }.bind(this);
-                shelfButton.buttonMesh.onclick = f;
-            }
-
-
         }
 
         if (drawShelf) {
             this.add(shelfMesh)
             this.add(shelfButton)
+            this.shelfButtonMesh = shelfButton;
             this.shelfMesh = shelfMesh;
         }
         if (drawAlbum) {
@@ -749,15 +757,20 @@ class ShelfButton extends THREE.Group {
 
     constructor(state = 0) {
         super();
-        this.state = state
         this.buttonMesh = new THREE.Mesh();
         this.buttonSocketMesh = new THREE.Mesh()
         this.#init()
+        this.setState(state);
+    }
+
+    setState(state) {
+        this.state = state;
+        this.buttonMesh.material.setValues({color: this.#stateColor()})
     }
 
     #stateColor() {
         if (this.state === 0) {
-            return new THREE.Color(.1, .3, .1)
+            return new THREE.Color(252 / 255, 226 / 255, 5 / 255)  // 252 226 5
         }
         if (this.state < 0) {
             return new THREE.Color(.8, 0, 0)
@@ -771,7 +784,7 @@ class ShelfButton extends THREE.Group {
         const buttonRadius = SHELF_HEIGHT * 0.9 / 2;
         const buttonGeometry = new THREE.CylinderGeometry(buttonRadius, buttonRadius, .5, 30)
         const buttonMaterial = new THREE.MeshStandardMaterial({
-            color: this.#stateColor(),
+            color: new THREE.Color(0, 0, 0),
             roughness: 0.5,
             metalness: 0.3,
             //emissive: this.#stateColor(),

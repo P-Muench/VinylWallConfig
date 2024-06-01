@@ -25,18 +25,21 @@ SECRET_KEY = 'django-insecure-s38z-xtdti5jpvowkbp*s-px(me95i!4-hqico7ts)q-ggj0xn
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "192.168.2.50", "127.0.0.1", "192.168.2.35"]
+ALLOWED_HOSTS = ["localhost", "192.168.2.50", "127.0.0.1", "192.168.2.35", "192.168.2.186"]
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'channels',
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'configurator.apps.ConfiguratorConfig',
 ]
 
@@ -70,6 +73,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'VinylWallConfig.wsgi.application'
+# Daphne
+ASGI_APPLICATION = "VinylWallConfig.asgi.application"
 
 LOGGING = {
     "version": 1,
@@ -126,6 +131,12 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 
 
 # Internationalization

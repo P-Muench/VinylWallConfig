@@ -1,0 +1,12 @@
+[Unit]
+Description=Handles Conncetion to spotify via Flask endpoint
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/VinylWallConfig
+ExecStart=/home/pi/VinylWallConfig/venv/bin/gunicorn -b localhost:8082 -w 4 helper_services.spotipy_daemon:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

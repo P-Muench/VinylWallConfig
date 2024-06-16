@@ -1,0 +1,13 @@
+[Unit]
+Description=Listens for incoming button presses and calls corresponding VWC/handle_button
+After=syslog.target network.target
+
+[Service]
+WorkingDirectory=/home/pi/VinylWallConfig
+ExecStart=/home/pi/VinylWallConfig/venv/bin/python3 helper_services/gpio_listener.py
+
+Restart=always
+RestartSec=120
+
+[Install]
+WantedBy=multi-user.target

@@ -161,4 +161,5 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-MUSIC_DAEMON_PATH = "http://127.0.0.1:8082"
+MUSIC_DAEMON_PORT = 8082
+MUSIC_DAEMON_PATH = f"http://localhost:{MUSIC_DAEMON_PORT}"

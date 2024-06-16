@@ -83,7 +83,7 @@ LOGGING = {
         "file": {
             "level": "DEBUG",
             "class": "logging.FileHandler",
-            "filename": f"{Path(Path.cwd(), "debug.log").resolve()}",
+            "filename": f"{Path(Path.cwd(), 'debug.log').resolve()}",
         },
     },
     "loggers": {

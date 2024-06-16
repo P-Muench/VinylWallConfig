@@ -83,7 +83,7 @@ LOGGING = {
         "file": {
             "level": "DEBUG",
             "class": "logging.FileHandler",
-            "filename": "/Users/philipmunch/PycharmProjects/VWC/debug.log",
+            "filename": f"{Path(Path.cwd(), "debug.log").resolve()}",
         },
     },
     "loggers": {

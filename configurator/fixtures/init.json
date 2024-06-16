@@ -45,5 +45,15 @@
       "updated_at": "1993-07-16T05:08:00.000Z",
       "associated_key": null
     }
+  },
+  {
+    "model": "configurator.vwcsetting",
+    "pk": 2,
+    "fields": {
+      "setting_name": "listening_shelfspot",
+      "value_str": null,
+      "value_int": null,
+      "value_float": null
+    }
   }
 ]

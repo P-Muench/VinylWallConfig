@@ -3,10 +3,11 @@ import json
 import threading
 from time import sleep, time
 
+from signal_handler import SignalHandler
 import RPi.GPIO as GPIO
 import requests
 
-from helper_services.signal_handler import SignalHandler
+
 
 PINS = [4, 5, 6, 7, 8, 9, 11, 12]
 ENDPOINT = "http://localhost:8000/handle_button/"
@@ -16,10 +17,14 @@ def make_request(key):
     data = {'key': key}
     data_json = json.dumps(data)
     print(time(), "SENDING", key)
-    r = requests.post(ENDPOINT,
-                      data=data_json,
-                      headers={'Content-Type': 'application/json'})
-    print(time(), "SENT", key, r.status_code)
+    try:
+        r = requests.post(ENDPOINT,
+                          data=data_json,
+                          headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        print("Exception while sending request", e)
+    else:
+        print(time(), "SENT", key, r.status_code)
 
 
 def init():

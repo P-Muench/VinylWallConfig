@@ -54,12 +54,16 @@ def devices(request):
 def activate_device(request):
     device_id = request.POST.get("device_id", -1)
 
-    currently_active_device = get_object_or_404(Device, active=1)
+
+    currently_active_devices = []
     new_active_device = get_object_or_404(Device, pk=device_id)
-    currently_active_device.active = False
+    for currently_active_device in Device.objects.get(active=1).objects.all():
+        currently_active_device.active = False
+        currently_active_devices.append(currently_active_device)
     new_active_device.active = True
 
-    currently_active_device.save()
+    for currently_active_device in currently_active_devices:
+        currently_active_device.save()
     new_active_device.save()
 
     return HttpResponseRedirect(reverse("configurator:devices"))

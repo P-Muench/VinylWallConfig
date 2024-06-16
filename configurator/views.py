@@ -57,9 +57,12 @@ def activate_device(request):
 
     currently_active_devices = []
     new_active_device = get_object_or_404(Device, pk=device_id)
-    for currently_active_device in Device.objects.get(active=1).objects.all():
-        currently_active_device.active = False
-        currently_active_devices.append(currently_active_device)
+    try:
+        for currently_active_device in Device.objects.get(active=1).objects.all():
+            currently_active_device.active = False
+            currently_active_devices.append(currently_active_device)
+    except Device.DoesNotExist:
+        pass
     new_active_device.active = True
 
     for currently_active_device in currently_active_devices:

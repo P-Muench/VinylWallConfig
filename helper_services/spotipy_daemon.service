@@ -5,7 +5,10 @@ After=network.target
 [Service]
 User=pi
 WorkingDirectory=/home/pi/VinylWallConfig
-ExecStart=/home/pi/VinylWallConfig/venv/bin/gunicorn -b localhost:8082 -w 4 helper_services.spotipy_daemon:app
+Environment="SPOTIPY_CLIENT_ID=6ca25b4a75d447328dcd1a80d0319e65"
+Environment="SPOTIPY_CLIENT_SECRET=e50d6c11d8cc4148aa08e3c466fc386b"
+Environment="SPOTIPY_REDIRECT_URI=http://localhost:8082"
+ExecStart=/home/pi/VinylWallConfig/venv/bin/gunicorn -b 0.0.0.0:8082 -w 4 helper_services.spotipy_daemon:app
 Restart=always
 
 [Install]

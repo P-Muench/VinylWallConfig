@@ -6,3 +6,4 @@ daphne
 spotipy~=2.23.0
 Flask~=3.0.0
 RPi.GPIO
+gunicorn

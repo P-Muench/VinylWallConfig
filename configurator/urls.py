@@ -25,4 +25,7 @@ urlpatterns = [
     path('shelfspot/remove/<int:shelfspot_id>', views.remove_playable, name="remove_playable"),
 
     path('handle_button/', views.handle_button, name="handle_button"),
+
+    path('test_buttons', views.dummy_buttons, name='test_buttons'),
+
 ]

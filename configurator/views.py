@@ -244,6 +244,8 @@ def playable_library(request):
                          'max_page': math.ceil(len(sorted_playables) / PAGE_LIMIT),
                          'album_list': [p.to_dict() for p in page_playables]})
 
+def dummy_buttons(request):
+    return render(request, 'configurator/dummy_buttons.html')
 
 def pick_shelf(request):
     PAGE_LIMIT = 4

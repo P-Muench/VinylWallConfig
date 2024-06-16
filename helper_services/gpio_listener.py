@@ -22,7 +22,7 @@ def make_request(key):
                           data=data_json,
                           headers={'Content-Type': 'application/json'})
     except Exception as e:
-        print("Exception while sending request", e)
+        print(time(), "Exception while sending request", e)
     else:
         print(time(), "SENT", key, r.status_code)
 

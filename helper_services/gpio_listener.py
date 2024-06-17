@@ -10,7 +10,7 @@ import requests
 
 
 PINS = [4, 5, 6, 7, 8, 9, 11, 12]
-ENDPOINT = "http://localhost:80/handle_button/"
+ENDPOINT = "http://192.168.2.107:80/handle_button/"
 
 
 def make_request(key):

@@ -10,7 +10,7 @@ import requests
 
 
 PINS = [4, 5, 6, 7, 8, 9, 11, 12]
-ENDPOINT = "http://localhost:8000/handle_button/"
+ENDPOINT = "http://localhost:80/handle_button/"
 
 
 def make_request(key):
@@ -50,7 +50,7 @@ def do_loop():
                 registered = True
         else:
             registered = False
-            sleep(0.005)
+            sleep(0.01)
         former_t = t
 
 

@@ -37,19 +37,20 @@ def init():
 def do_loop():
     signal_handler = SignalHandler()
     former_t = 0
-    printed = False
+    registered = False
     while signal_handler.can_run():
         t = 0
         for i in PINS:
             t += GPIO.input(i) * 2 ** (i - 4)
         if t > 0:
-            if former_t == t and t > 0 and not printed:
+            if former_t == t and t > 0 and not registered:
                 print(time(), "registered", t)
                 thread = threading.Thread(target=make_request, args=(t,))
                 thread.start()
-                printed = True
+                registered = True
         else:
-            printed = False
+            registered = False
+            sleep(0.02)
         former_t = t
 
 

@@ -50,7 +50,7 @@ def do_loop():
                 registered = True
         else:
             registered = False
-            sleep(0.02)
+            sleep(0.005)
         former_t = t
 
 

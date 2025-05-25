@@ -42,7 +42,7 @@ services:
       GPIO_CONFIGURATION: "${GPIO_CONFIGURATION}"
       GPIOZERO_PIN_FACTORY: "${GPIOZERO_PIN_FACTORY}"
       BUTTON_ENDPOINT: "http://VWC:${FRONTEND_PORT:-80}/handle_button"
-    working_dir: /app/VinylWallConfig
+    working_dir: /app/
     volumes:
       - ./helper_services:/app/helper_services
       - ./requirements.txt:/app/requirements.txt
@@ -57,7 +57,7 @@ services:
       - VWC
   VWC:
     image: python:3.12
-#    restart: always
+    restart: always
     container_name: VWC
     ports:
       - "8000:8000"

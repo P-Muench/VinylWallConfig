@@ -4,9 +4,10 @@ import re
 from pprint import pprint
 
 import requests
+from django.contrib import messages
 from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -25,8 +26,11 @@ def shelf_view(request, shelf_id):
 
 
 def active_shelf_view(request):
-    shelf = get_object_or_404(Shelf, active=1)
-    return render_shelf(request, shelf)
+    if (login_resp:= login_if_necessary(request)) is not None:
+        return login_resp
+    else:
+        shelf = get_object_or_404(Shelf, active=1)
+        return render_shelf(request, shelf)
 
 
 def shelf_json(request, shelf_id):
@@ -58,9 +62,9 @@ def activate_device(request):
     currently_active_devices = []
     new_active_device = get_object_or_404(Device, pk=device_id)
     try:
-        for currently_active_device in Device.objects.get(active=1).objects.all():
-            currently_active_device.active = False
-            currently_active_devices.append(currently_active_device)
+        # Deactivate all active devices in a single query
+        currently_active_devices = Device.objects.filter(active=True)
+        currently_active_devices.update(active=False)
     except Device.DoesNotExist:
         pass
     new_active_device.active = True
@@ -319,3 +323,55 @@ def play_from_key(sent_key):
                   data=json.dumps(post_data),
                   headers={'Content-Type': 'application/json'})
     return JsonResponse({'selected_playable': selected_playable.uri, "device": active_device.device_id})
+
+
+def login_if_necessary(request):
+    resp = requests.get(MUSIC_DAEMON_PATH + "/isLoggedIn")
+    if resp.status_code != 200:
+        resp = requests.get(MUSIC_DAEMON_PATH + "/auth_url")
+        verification_url = resp.text
+        return render(request, 'configurator/verify_url.html', {'verification_url': verification_url})
+
+
+def login_spotify(request):
+    if request.method == 'POST':
+        # Get the submitted URL from the form
+        resulting_url = request.POST.get('resulting_url')
+
+        if resulting_url:
+            # Use regex to extract the 'code' parameter from the submitted URL
+            match = re.search(r"code=([a-zA-Z0-9_-]*)", resulting_url)
+            if match:
+                # Extract the code
+                code = match.group(1)
+
+                # Construct the daemon URL with the code as a query parameter
+                daemon_url = f"{MUSIC_DAEMON_PATH}?code={code}"
+
+                # Make a GET request to the daemon URL
+                try:
+                    response = requests.get(daemon_url)
+
+                    # Check if the response status is 200 (success)
+                    if response.status_code == 200:
+                        # Redirect to the homepage
+                        return redirect('/')
+                    else:
+                        # Handle non-200 responses from the daemon URL
+                        messages.error(
+                            request, f"Daemon returned status code {response.status_code}. Please try again."
+                        )
+                except requests.RequestException as e:
+                    # Handle connection errors or other request exceptions
+                    messages.error(
+                        request, f"Failed to connect to the daemon: {str(e)}. Please check your connection and try again."
+                    )
+            else:
+                # If the regex doesn't find a valid code
+                messages.error(request, "The supplied URL does not contain a code. Please try again.")
+        else:
+            # If the URL field is empty
+            messages.error(request, "The URL field is empty. Please provide a valid URL.")
+
+    # Render the template again if the request is not POST or validation fails
+    return render(request, 'configurator/verify_url.html', {'verification_url': None})

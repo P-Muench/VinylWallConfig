@@ -3,14 +3,15 @@ import os
 from pprint import pprint
 
 import spotipy
-from spotipy import SpotifyOAuth
+from spotipy import SpotifyOAuth, CacheFileHandler
 from flask import Flask, jsonify, Response, redirect, request
 
-from VinylWallConfig.settings import MUSIC_DAEMON_PORT
+# from VinylWallConfig.settings import MUSIC_DAEMON_PORT
+MUSIC_DAEMON_PORT = os.getenv("MUSIC_DAEMON_PORT")
 
 app = Flask(__name__)
 
-SCOPE = "playlist-read-private playlist-read-collaborative user-read-playback-state"
+SCOPE = "playlist-read-private playlist-read-collaborative user-read-playback-state streaming app-remote-control user-modify-playback-state"
 
 
 # playlist-read-private
@@ -24,17 +25,31 @@ def get_auth_manager() -> SpotifyOAuth:
     :return: SpotifyOAuth authentication manager object.
     :rtype: SpotifyOAuth
     """
-    return SpotifyOAuth(scope=SCOPE, open_browser=False)
+    return SpotifyOAuth(scope=SCOPE, open_browser=False, cache_handler=CacheFileHandler())
+
 
 @app.get("/isLoggedIn")
 def is_logged_in() -> Response:
     sp = spotipy.Spotify(auth_manager=get_auth_manager())
-    print(sp.me())
+    try:
+        me = sp.me()
+        return jsonify(me)
+    except EOFError:
+        return Response("Not logged in", status=401)
+
 
 @app.get("/auth_url")
 def auth_url() -> Response:
+    """
+    Get the Spotify authorization URL.
+
+    :return: Redirect response to Spotify authorization page
+    :rtype: Response
+    """
     auth_url = get_auth_manager().get_authorize_url()
+    return auth_url
     return redirect(auth_url, code=302)
+
 
 @app.get("/devices")
 def get_devices():
@@ -64,6 +79,7 @@ def get_album(query):
     print(f"Outgoing: {datetime.datetime.now()}")
     return js_result
 
+
 @app.route('/', methods=['GET'])
 def get_code():
     code = request.args.get('code', default=None)
@@ -87,18 +103,24 @@ def get_playlist(query):
 
     return jsonify(res.get("playlists", dict()).get("items", dict()))
 
+
 @app.post("/play")
-def play():
+def play() -> Response:
+    """
+    Start playback on a specified device with the given URI.
+
+    :return: JSON response indicating the playback status
+    :rtype: Response
+    """
     if request.method == "POST":
         js = request.get_json()
         pprint(js)
         print(f"Est AUTH: {datetime.datetime.now()}")
         sp = spotipy.Spotify(auth_manager=get_auth_manager())
+        sp.shuffle(state=False, device_id=js["device"])
+        sp.start_playback(device_id=js["device"], context_uri=js["playable_uri"])
 
-        res = sp.start_playback(device_id=js["device"], context_uri=js["playable_uri"])
-
-    return jsonify({"a": "b"})
-
+    return jsonify({"status": "success"})
 
 
 if __name__ == '__main__':

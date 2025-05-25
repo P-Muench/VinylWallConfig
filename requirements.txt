@@ -1,11 +1,11 @@
 Django~=5.0.1
-requests~=2.31.0
+requests
 psycopg2-binary
 channels
 daphne
-spotipy~=2.23.0
-Flask~=3.0.0
-RPi.GPIO
+spotipy
+Flask
+gpiozero
 gunicorn
 uvicorn
 websockets

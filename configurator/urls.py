@@ -1,4 +1,6 @@
 from django.urls import path, register_converter
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+
 
 from . import views, converters
 
@@ -27,5 +29,7 @@ urlpatterns = [
     path('handle_button/', views.handle_button, name="handle_button"),
 
     path('test_buttons', views.dummy_buttons, name='test_buttons'),
-
+    path('login/', views.login_spotify, name='login'),
 ]
+
+urlpatterns += staticfiles_urlpatterns()

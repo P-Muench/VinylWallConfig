@@ -20,13 +20,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-s38z-xtdti5jpvowkbp*s-px(me95i!4-hqico7ts)q-ggj0xn'
+SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-abcdefghijkl")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = bool(os.environ.get("DEBUG", default=0))
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1").split(",")
 
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1", "192.168.2.107"]
-
+MUSIC_DAEMON_PORT = os.environ.get("MUSIC_DAEMON_PORT", default=8082)
+MUSIC_DAEMON_HOST = os.environ.get("MUSIC_DAEMON_HOST", default="localhost")
+MUSIC_DAEMON_PATH =  f"http://{MUSIC_DAEMON_HOST}:{MUSIC_DAEMON_PORT}"
 
 # Application definition
 
@@ -106,10 +108,11 @@ LOGGING = {
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "OPTIONS": {
-            "service": "VinylWall",
-            "passfile": str(Path(Path(__file__).parent.parent, ".my_pgpass").resolve()),
-        },
+        'NAME': 'VinylWall',  # This is the name of your database
+        'USER': 'postgres',  # Username for the database
+        'PASSWORD': os.getenv("DB_PASSWD"),  # Password for the database
+        'HOST': os.getenv("DB_HOST"),  # Database server address (e.g., 127.0.0.1 or AWS endpoint)
+        'PORT': '5432',
     }
 }
 
@@ -162,6 +165,3 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-MUSIC_DAEMON_PORT = 8082
-MUSIC_DAEMON_PATH = f"http://localhost:{MUSIC_DAEMON_PORT}"

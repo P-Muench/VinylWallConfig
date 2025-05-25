@@ -19,7 +19,7 @@ class ConfigureConsumer(WebsocketConsumer):
         shelfspot_id = text_data_json["shelfspot_id"]
         shelfspot: ShelfSpot = ShelfSpot.objects.filter(id=shelfspot_id).first()
         VWCSetting.set_listening_shelfspot(shelfspot_id)
-        DURATION = 5
+        DURATION = 10
         for i in range(DURATION + 1):
             if VWCSetting.get_listening_shelfspot() == shelfspot_id:
                 message = f"Press Button to connect. You have<br><h1 style='text-align: center;'>{DURATION-i}</h1><br>seconds"

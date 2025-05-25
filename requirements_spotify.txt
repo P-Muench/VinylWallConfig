@@ -1,0 +1,7 @@
+requests
+channels
+daphne
+spotipy
+Flask
+gunicorn
+uvicorn

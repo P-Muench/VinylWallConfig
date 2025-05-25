@@ -4,8 +4,6 @@ services:
     restart: always
     volumes:
       - vwc:/data/db
-    ports:
-      - "${DB_PORT:-5432}:${DB_PORT:-5432}"
     networks:
       - shared-network
     environment:
@@ -17,8 +15,6 @@ services:
     container_name: spotipy
     networks:
       - shared-network
-#    ports:
-#      - "${MUSIC_DAEMON_PORT:-8082}:${MUSIC_DAEMON_PORT:-8082}"
     environment:
       SPOTIPY_CLIENT_ID: "${SPOTIPY_CLIENT_ID}"
       SPOTIPY_CLIENT_SECRET: "${SPOTIPY_CLIENT_SECRET}"
@@ -26,7 +22,7 @@ services:
     working_dir: /app/
     volumes:
       - ./helper_services:/app/helper_services
-      - ./requirements.txt:/app/requirements.txt
+      - ./requirements_spotify.txt:/app/requirements.txt
     command: >
       sh -c "
       pip install --no-cache-dir -r /app/requirements.txt &&
@@ -45,9 +41,13 @@ services:
     working_dir: /app/
     volumes:
       - ./helper_services:/app/helper_services
-      - ./requirements.txt:/app/requirements.txt
+      - ./requirements_gpio.txt:/app/requirements.txt
       - /sys/class/gpio:/sys/class/gpio
     privileged: true              # Privileged only for real GPIO
+    devices:
+      - "/dev/gpiochip0:/dev/gpiochip0"
+    tty: true
+    stdin_open: true
     command: >
       sh -c "
       pip install --no-cache-dir -r /app/requirements.txt &&

@@ -3,10 +3,6 @@ requests
 psycopg2-binary
 channels
 daphne
-spotipy
-Flask
-gpiozero
 gunicorn
 uvicorn
 websockets
-lgpio

@@ -100,7 +100,7 @@ def monitor_pins():
         for i, button in enumerate(buttons):
             if not button.value:
                 t += 2 ** i
-        print([b.pin for b in buttons if not b.value])
+        # print([b.pin for b in buttons if not b.value])
         if t > 0:
             if former_t == t and not registered:
                 print(time(), "registered", t)

@@ -7,17 +7,20 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'https://localhost',
         changeOrigin: true,
+        secure: false, // Ignore certificate validation for self-signed certificates
         // rewrite: (path) => path.replace(/^\/api/, '')
       },
       '/static': {
-        target: 'http://localhost:8000',
-        changeOrigin: true
+        target: 'https://localhost',
+        changeOrigin: true,
+        secure: false // Ignore certificate validation for self-signed certificates
       },
       '/ws': {
-        target: 'ws://localhost:8000',
-        ws: true
+        target: 'wss://localhost',
+        ws: true,
+        secure: false // Ignore certificate validation for self-signed certificates
       }
     }
   }

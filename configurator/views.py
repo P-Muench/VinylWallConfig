@@ -380,7 +380,6 @@ def login_if_necessary(request):
         verification_url = resp.text
         return render(request, 'configurator/verify_url.html', {'verification_url': verification_url})
 
-
 def login_spotify(request):
     if request.method == 'POST':
         # Get the submitted URL from the form

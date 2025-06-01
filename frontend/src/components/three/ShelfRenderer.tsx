@@ -6,6 +6,11 @@ import { ShelfData, ShelfSpotData } from '../../types'
 import { useStore } from '../../store/useStore'
 import ShelfSpot from './ShelfSpot'
 
+// Utility function to detect if the device is mobile
+const isMobile = (): boolean => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
 // Constants from the original ShelfRenderer.js
 const FOV = 54.4 // 35mm
 
@@ -109,6 +114,9 @@ interface ShelfRendererProps {
 const ShelfRenderer = ({ shelfData, onShelfSpotClick, onShelfButtonClick }: ShelfRendererProps) => {
   const { isPaused, isEditMode, addShelfSpot, removeShelfSpot } = useStore()
   const [temporarySpots, setTemporarySpots] = useState<ShelfSpotData[]>([])
+  const [deviceOrientation, setDeviceOrientation] = useState<{beta: number, gamma: number} | null>(null)
+  const [gyroscopeAvailable, setGyroscopeAvailable] = useState<boolean>(false)
+  const [isMobileDevice, setIsMobileDevice] = useState<boolean>(false)
   const viewableGroup = useRef<THREE.Group>(null)
   const backgroundGroup = useRef<THREE.Group>(null)
   const allObjectsGroup = useRef<THREE.Group>(null)
@@ -126,6 +134,65 @@ const ShelfRenderer = ({ shelfData, onShelfSpotClick, onShelfButtonClick }: Shel
       camera.updateProjectionMatrix()
     }
   }, [camera])
+
+  // Function to handle device orientation events
+  const handleDeviceOrientation = useCallback((event: DeviceOrientationEvent) => {
+    // Beta is the front-to-back tilt in degrees, where front is positive
+    // Gamma is the left-to-right tilt in degrees, where right is positive
+    if (event.beta !== null && event.gamma !== null) {
+
+      setDeviceOrientation({
+        beta: event.beta,
+        gamma: event.gamma
+      })
+      setGyroscopeAvailable(true)
+    }
+  }, [])
+
+  // Function to request gyroscope permission
+  const requestGyroscopePermission = useCallback(async () => {
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+      try {
+        const permissionState = await (DeviceOrientationEvent as any).requestPermission()
+        if (permissionState === 'granted') {
+          window.addEventListener('deviceorientation', handleDeviceOrientation, true)
+          return true
+        } else {
+          console.log('Permission to access device orientation was denied')
+          return false
+        }
+      } catch (error) {
+        console.error('Error requesting device orientation permission:', error)
+        return false
+      }
+    } else {
+      // For non-iOS 13+ devices, add the event listener directly
+      window.addEventListener('deviceorientation', handleDeviceOrientation, true)
+      return true
+    }
+  }, [handleDeviceOrientation])
+
+  // Initialize device orientation and mobile detection
+  useEffect(() => {
+    // Check if device is mobile
+    const mobileCheck = isMobile()
+    setIsMobileDevice(mobileCheck)
+
+    if (mobileCheck) {
+      // For non-iOS devices or older iOS versions, add the event listener directly
+      if (typeof DeviceOrientationEvent === 'undefined' || 
+          typeof (DeviceOrientationEvent as any).requestPermission !== 'function') {
+        window.addEventListener('deviceorientation', handleDeviceOrientation, true)
+      }
+      // For iOS 13+, we'll wait for the user to click the permission button
+    }
+
+    // Cleanup function to remove event listener
+    return () => {
+      window.removeEventListener('deviceorientation', handleDeviceOrientation, true)
+    }
+  }, [handleDeviceOrientation])
 
   // Create temporary spots when edit mode is toggled
   useEffect(() => {
@@ -254,20 +321,55 @@ const ShelfRenderer = ({ shelfData, onShelfSpotClick, onShelfButtonClick }: Shel
     }
   }, [boundingSphere])
 
-  // Handle mouse movement for camera position adjustment
+  // Handle camera position adjustment based on mouse or gyroscope
   useFrame((state) => {
     if (isPaused) return
 
     if (camera.userData.originalPosition && boundingSphere.current) {
-      const pointer = state.pointer
-      const leeWay = 3
-      const transform = (p: number) => p // Could use Math.sign(p) * Math.sqrt(Math.abs(p)) for non-linear effect
+      let newPos: THREE.Vector3
 
-      const newPos = new THREE.Vector3(
-        camera.userData.originalPosition.x + transform(pointer.x) * leeWay,
-        camera.userData.originalPosition.y + transform(pointer.y) * leeWay,
-        camera.userData.originalPosition.z
-      )
+      // Use gyroscope data on mobile devices if available
+      if (isMobileDevice && gyroscopeAvailable && deviceOrientation) {
+        // Convert gyroscope data to camera movement
+        // Beta (front-to-back tilt) affects y position
+        // Gamma (left-to-right tilt) affects x position
+
+        // Normalize the values to a range similar to mouse movement (-1 to 1)
+        // Beta ranges from -180 to 180, we'll use a smaller range for better control
+        // const normalizedBeta = (deviceOrientation.beta + 45) / 180
+        let normalizedBeta
+        // Gamma ranges from -90 to 90, we'll use a smaller range for better control
+        let normalizedGamma
+
+        if (window.innerWidth < window.innerHeight) {
+          // Portait
+          normalizedGamma = - (deviceOrientation.beta - 45) / 90
+          normalizedBeta = deviceOrientation.gamma / 90
+        } else {
+          // Landscape
+          normalizedBeta = 2 * deviceOrientation.beta / 90
+          normalizedGamma = (deviceOrientation.gamma + 45) / 90
+        }
+
+        const leeWay = 30 // Same as mouse movement
+
+        newPos = new THREE.Vector3(
+          camera.userData.originalPosition.x + normalizedBeta * leeWay,
+          camera.userData.originalPosition.y + normalizedGamma * leeWay,
+          camera.userData.originalPosition.z
+        )
+      } else {
+        // Use mouse movement on desktop or if gyroscope is not available
+        const pointer = state.pointer
+        const leeWay = 3
+        const transform = (p: number) => p // Could use Math.sign(p) * Math.sqrt(Math.abs(p)) for non-linear effect
+
+        newPos = new THREE.Vector3(
+          camera.userData.originalPosition.x + transform(pointer.x) * leeWay,
+          camera.userData.originalPosition.y + transform(pointer.y) * leeWay,
+          camera.userData.originalPosition.z
+        )
+      }
 
       camera.position.copy(newPos)
       camera.lookAt(boundingSphere.current.center)
@@ -292,6 +394,66 @@ const ShelfRenderer = ({ shelfData, onShelfSpotClick, onShelfButtonClick }: Shel
       removeShelfSpot(shelfData.shelf_id, spot.row, spot.col)
     }
   }, [isEditMode, removeShelfSpot, shelfData.shelf_id])
+
+  // Add a visual indicator for gyroscope status with permission button
+  useEffect(() => {
+    // Create a container div for the gyroscope status and button
+    const containerDiv = document.createElement('div')
+    containerDiv.id = 'gyroscope-container'
+    containerDiv.style.position = 'fixed'
+    containerDiv.style.bottom = '10px'
+    containerDiv.style.right = '10px'
+    containerDiv.style.display = 'flex'
+    containerDiv.style.flexDirection = 'column'
+    containerDiv.style.alignItems = 'flex-end'
+    containerDiv.style.gap = '5px'
+    containerDiv.style.zIndex = '1000'
+
+    // Create a button for requesting gyroscope permission
+    const permissionButton = document.createElement('button')
+    permissionButton.id = 'gyroscope-permission-button'
+    permissionButton.textContent = 'Enable Gyroscope'
+    permissionButton.style.padding = '5px 10px'
+    permissionButton.style.borderRadius = '5px'
+    permissionButton.style.fontSize = '12px'
+    permissionButton.style.backgroundColor = '#007bff'
+    permissionButton.style.color = 'white'
+    permissionButton.style.border = 'none'
+    permissionButton.style.cursor = 'pointer'
+    permissionButton.style.display = 'none' // Hide by default
+
+    // Add click event listener to the button
+    permissionButton.addEventListener('click', async () => {
+      const success = await requestGyroscopePermission()
+      if (success) {
+        permissionButton.style.display = 'none'
+      }
+    })
+
+    // Add elements to the container
+    containerDiv.appendChild(permissionButton)
+
+    // Add the container to the document body
+    document.body.appendChild(containerDiv)
+
+    // Check if we need to show the permission button
+    const needsPermissionButton = 
+      isMobileDevice && 
+      !gyroscopeAvailable && 
+      typeof DeviceOrientationEvent !== 'undefined' && 
+      typeof (DeviceOrientationEvent as any).requestPermission === 'function'
+
+    if (needsPermissionButton) {
+      permissionButton.style.display = 'block'
+    }
+
+    // Cleanup function
+    return () => {
+      if (document.body.contains(containerDiv)) {
+        document.body.removeChild(containerDiv)
+      }
+    }
+  }, [isMobileDevice, gyroscopeAvailable, requestGyroscopePermission])
 
   return (
     <>

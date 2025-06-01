@@ -288,7 +288,9 @@ export const useStore = create<StoreState>((set, get) => ({
     }
 
     if (shelfId !== null && shelfId !== undefined) {
-      const ws = new WebSocket(`ws://${window.location.host}/ws/configure/${shelfId}/`);
+      // Use wss:// for secure connections (HTTPS), ws:// for regular HTTP
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/configure/${shelfId}/`);
 
       ws.onmessage = (e) => {
         const data: WebSocketMessage = JSON.parse(e.data);

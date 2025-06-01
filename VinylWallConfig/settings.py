@@ -28,8 +28,10 @@ ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1").split(",")
 
 MUSIC_DAEMON_PORT = os.environ.get("MUSIC_DAEMON_PORT", default=8082)
 MUSIC_DAEMON_HOST = os.environ.get("MUSIC_DAEMON_HOST", default="localhost")
-MUSIC_DAEMON_PATH =  f"http://{MUSIC_DAEMON_HOST}:{MUSIC_DAEMON_PORT}"
+MUSIC_DAEMON_PROTOCOL = os.environ.get("MUSIC_DAEMON_PROTOCOL", default="http")
+MUSIC_DAEMON_PATH =  f"{MUSIC_DAEMON_PROTOCOL}://{MUSIC_DAEMON_HOST}:{MUSIC_DAEMON_PORT}"
 
+CSRF_TRUSTED_ORIGINS = ["https://localhost"]
 # Application definition
 
 INSTALLED_APPS = [

@@ -22,7 +22,7 @@ class ConfigureConsumer(WebsocketConsumer):
         DURATION = 10
         for i in range(DURATION + 1):
             if VWCSetting.get_listening_shelfspot() == shelfspot_id:
-                message = f"Press Button to connect. You have<br><h1 style='text-align: center;'>{DURATION-i}</h1><br>seconds"
+                message = f"{DURATION-i}"
 
                 self.send(text_data=json.dumps({"message": message,
                                                 "states": {

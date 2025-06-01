@@ -37,6 +37,14 @@ class Device(models.Model):
             suffix = " (Active)"
         return f"Device {self.device_id} [{self.device_name}]" + suffix
 
+    def to_dict(self):
+        return {
+            "device_id": self.device_id,
+            "active": self.active,
+            "device_name": self.device_name,
+            "device_type": self.device_type,
+        }
+
     @staticmethod
     def from_json(json_dict, save=False):
         """
@@ -167,6 +175,11 @@ class Playable(models.Model):
     def to_dict(self):
         return {"id": self.id, "name": self.name, "image_url": self.image_url, "in_library": self.in_library}
 
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other):
+        return self.id == other.id
 
 class Album(Playable):
     """
@@ -242,6 +255,13 @@ class Playlist(Playable):
     public = models.BooleanField()
 
 
+def generate_spot_matrix(spot_list):
+    spot_matrix = []
+    for s in spot_list:
+        spot_matrix.append(s.to_dict())
+    return spot_matrix
+
+
 class Shelf(models.Model):
     """
     A class representing a shelf.
@@ -257,6 +277,10 @@ class Shelf(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def to_dict(self):
+        return {"shelf_id": self.id, "name": self.name, "active": self.active,
+                "updated_at": self.updated_at,
+                'spot_matrix': generate_spot_matrix(self.shelfspot_set.all())}
 
 class ShelfSpot(models.Model):
     """

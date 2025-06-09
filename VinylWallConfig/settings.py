@@ -31,7 +31,7 @@ MUSIC_DAEMON_HOST = os.environ.get("MUSIC_DAEMON_HOST", default="localhost")
 MUSIC_DAEMON_PROTOCOL = os.environ.get("MUSIC_DAEMON_PROTOCOL", default="http")
 MUSIC_DAEMON_PATH =  f"{MUSIC_DAEMON_PROTOCOL}://{MUSIC_DAEMON_HOST}:{MUSIC_DAEMON_PORT}"
 
-CSRF_TRUSTED_ORIGINS = ["https://localhost"]
+CSRF_TRUSTED_ORIGINS = [os.environ.get("CSRF_TRUSTED_ORIGINS", default="https://localhost")]
 # Application definition
 
 INSTALLED_APPS = [

@@ -51,7 +51,6 @@ VinylWallConfig is a project that allows you to create a decorative vinyl wall d
 1. **Install Docker and Docker Compose** on your Raspberry Pi:
    ```bash
    curl -sSL https://get.docker.com | sh
-   sudo apt-get install -y docker-compose
    ```
 
 2. **Clone the repository**:
@@ -83,7 +82,7 @@ VinylWallConfig is a project that allows you to create a decorative vinyl wall d
 
 6. **Start the application**:
    ```bash
-   docker-compose up -d
+   sudo docker compose up -d
    ```
 
 7. **Access the web interface**:

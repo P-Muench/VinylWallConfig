@@ -82,7 +82,9 @@ def make_request(key):
     try:
         r = requests.post(ENDPOINT,
                           data=data_json,
-                          headers={'Content-Type': 'application/json'})
+                          headers={'Content-Type': 'application/json'},
+                          verify=False
+                          )
     except Exception as e:
         print(time(), "Exception while sending request", e)
     else:

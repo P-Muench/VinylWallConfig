@@ -87,6 +87,7 @@ VinylWallConfig is a project that allows you to create a decorative vinyl wall d
 
 7. **Access the web interface**:
    - Open a browser and navigate to `https://your_raspberry_pi_ip/`
+   - If you are using the self signed certificates generated before make sure to accept the insecure connection
    - Follow the on-screen instructions to log in to Spotify and configure your vinyl wall
 
 ## Usage

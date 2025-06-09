@@ -20,8 +20,8 @@ VinylWallConfig is a project that allows you to create a decorative vinyl wall d
 - **Ready-to-Go Docker Setup**: Complete Docker Compose configuration for easy deployment.
 - **Scalable**: Support for up to 30 vinyls with 2 receivers. Shelf layouts fully dynamical.
 
-![frontend.png](docs/frontend.png)
-
+![VWC.gif](docs/VWC.gif)
+![VWC2.gif](docs/VWC2.gif)
 ## Hardware Requirements
 
 ### Recommended Components
@@ -73,12 +73,13 @@ VinylWallConfig is a project that allows you to create a decorative vinyl wall d
    ```
    
 5. - Get your Spotify API credentials from https://developer.spotify.com/dashboard
+   - Set https://raspberrypi.local/login (or however your RPi is reachable in your network) as redirect URI
    - Update the Spotify API credentials in the .env file:
-   ```
-   SPOTIPY_CLIENT_ID=your_spotify_client_id
-   SPOTIPY_CLIENT_SECRET=your_spotify_client_secret
-   SPOTIPY_REDIRECT_URI=http://localhost:8082
-   ```
+     ```
+     SPOTIPY_CLIENT_ID=your_spotify_client_id
+     SPOTIPY_CLIENT_SECRET=your_spotify_client_secret
+     SPOTIPY_REDIRECT_URI=https://raspberrypi.local/login
+     ```
 
 6. **Start the application**:
    ```bash

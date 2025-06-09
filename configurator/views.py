@@ -391,35 +391,46 @@ def login_spotify(request):
             if match:
                 # Extract the code
                 code = match.group(1)
-
-                # Construct the daemon URL with the code as a query parameter
-                daemon_url = f"{MUSIC_DAEMON_PATH}?code={code}"
-
-                # Make a GET request to the daemon URL
-                try:
-                    response = requests.get(daemon_url)
-
-                    # Check if the response status is 200 (success)
-                    if response.status_code == 200:
-                        # Redirect to the homepage
-                        return redirect('/')
-                    else:
-                        # Handle non-200 responses from the daemon URL
-                        messages.error(
-                            request, f"Daemon returned status code {response.status_code}. Please try again."
-                        )
-                except requests.RequestException as e:
-                    # Handle connection errors or other request exceptions
-                    messages.error(
-                        request,
-                        f"Failed to connect to the daemon: {str(e)}. Please check your connection and try again."
-                    )
+                success = apply_code(code, request)
+                if success:
+                    return redirect('/')
             else:
                 # If the regex doesn't find a valid code
                 messages.error(request, "The supplied URL does not contain a code. Please try again.")
         else:
             # If the URL field is empty
             messages.error(request, "The URL field is empty. Please provide a valid URL.")
+    elif request.method == 'GET':
+        code = request.GET.get("code", None)
+        success = apply_code(code, request)
+        if success:
+            return redirect('/')
 
     # Render the template again if the request is not POST or validation fails
     return render(request, 'configurator/verify_url.html', {'verification_url': None})
+
+
+def apply_code(code, request):
+    success = False
+    # Construct the daemon URL with the code as a query parameter
+    daemon_url = f"{MUSIC_DAEMON_PATH}?code={code}"
+    # Make a GET request to the daemon URL
+    try:
+        response = requests.get(daemon_url)
+
+        # Check if the response status is 200 (success)
+        if response.status_code == 200:
+            # Redirect to the homepage
+            success = True
+        else:
+            # Handle non-200 responses from the daemon URL
+            messages.error(
+                request, f"Daemon returned status code {response.status_code}. Please try again."
+            )
+    except requests.RequestException as e:
+        # Handle connection errors or other request exceptions
+        messages.error(
+            request,
+            f"Failed to connect to the daemon: {str(e)}. Please check your connection and try again."
+        )
+    return success

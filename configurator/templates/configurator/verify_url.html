@@ -98,24 +98,15 @@
     <div class="container">
         <h1>Login to Spotify</h1>
         <p>
-            Please visit the URL below and complete the process. <br>
-            Once you’re done, copy the resulting URL and paste it back here.
+            VinylWall needs to access your spotify profile. <br>
+            Please visit the URL below and complete the process.
         </p>
 
         <!-- Display the provided URL -->
         <p>
-            <a href="{{ verification_url }}" target="_blank">LINK</a>
+            <a href="{{ verification_url }}">SPOTIFY</a>
         </p>
 
-        <!-- Form for submitting the resulting URL -->
-        <form method="post" action="{% url 'configurator:login' %}">
-            {% csrf_token %}
-
-            <label for="resulting_url">Paste the resulting URL:</label>
-            <input type="url" id="resulting_url" name="resulting_url" placeholder="https://example.com" required>
-
-            <button type="submit">Submit</button>
-        </form>
     </div>
 
 </body>

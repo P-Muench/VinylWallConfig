@@ -31,7 +31,7 @@ urlpatterns += [
     path('api/handle_button/', views.handle_button, name="handle_button"),
 
     path('test_buttons', views.dummy_buttons, name='test_buttons'),
-    path('login/', views.login_spotify, name='login'),
+    path('login', views.login_spotify, name='login'),
     re_path(r'^.*$', views.react_view, name='root'),
 ]
 
